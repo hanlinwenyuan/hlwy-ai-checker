@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI模型识别器 - Model Fingerprinting Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            background: none;
+            border: none;
+            font-size: 1.1em;
+            cursor: pointer;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-bar.show {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* ===== 修复：图表容器固定高度，防止无限增长 ===== */
+        .chart-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            height: 400px;  /* 固定高度 */
+            max-height: 400px;
+            overflow: hidden;
+        }
+
+        .chart-wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        /* ===== 修复结束 ===== */
+
+        .baseline-list {
+            margin-top: 20px;
+        }
+
+        .baseline-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .baseline-item .name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .baseline-item .stats {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .baseline-item .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn-small:hover {
+            background: #5a6268;
+        }
+
+        .btn-small.danger {
+            background: #dc3545;
+        }
+
+        .btn-small.danger:hover {
+            background: #c82333;
+        }
+
+        .result-card {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .result-card h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .match-item {
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .match-item .model-name {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #667eea;
+        }
+
+        .match-item .similarity {
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 AI模型识别器</h1>
+            <p>通过随机数生成模式识别和区分不同的AI模型</p>
+        </div>
+
+        <div class="content">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('calibrate')">📊 标定基准</button>
+                <button class="tab" onclick="switchTab('test')">🔍 测试识别</button>
+                <button class="tab" onclick="switchTab('baselines')">💾 基准管理</button>
+            </div>
+
+            <!-- 标定基准 Tab -->
+            <div id="calibrate" class="tab-content active">
+                <h2>标定新模型基准</h2>
+                <p style="color: #666; margin-bottom: 20px;">配置API并运行测试，建立模型的随机数分布基准</p>
+
+                <div class="form-group">
+                    <label>API 类型</label>
+                    <select id="calib-api-type" onchange="updateCalibApiFields()">
+                        <option value="openai">OpenAI 兼容格式</option>
+                        <option value="anthropic">Anthropic Claude API</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Base URL</label>
+                        <input type="text" id="calib-base-url" placeholder="https://api.openai.com/v1">
+                    </div>
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="password" id="calib-api-key" placeholder="sk-...">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>模型名称</label>
+                        <input type="text" id="calib-model-name" placeholder="gpt-4">
+                    </div>
+                    <div class="form-group">
+                        <label>测试次数 (50-500)</label>
+                        <input type="number" id="calib-iterations" value="200" min="50" max="500">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>基准名称（用于保存和识别）</label>
+                    <input type="text" id="calib-baseline-name" placeholder="例如: GPT-4-Turbo-2024">
+                </div>
+
+                <button class="btn" onclick="startCalibration()" id="calib-btn">🚀 开始标定</button>
+
+                <div class="progress-bar" id="calib-progress-bar">
+                    <div class="progress-fill" id="calib-progress-fill">0%</div>
+                </div>
+
+                <div class="status" id="calib-status"></div>
+
+                <!-- 修复：canvas 包裹在固定高度的 wrapper 中 -->
+                <div class="chart-container" id="calib-chart-container" style="display: none;">
+                    <h3>分布图表</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="calib-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 测试识别 Tab -->
+            <div id="test" class="tab-content">
+                <h2>测试未知模型</h2>
+                <p style="color: #666; margin-bottom: 20px;">配置待测模型API，系统将匹配最相似的基准模型</p>
+
+                <div class="form-group">
+                    <label>API 类型</label>
+                    <select id="test-api-type" onchange="updateTestApiFields()">
+                        <option value="openai">OpenAI 兼容格式</option>
+                        <option value="anthropic">Anthropic Claude API</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Base URL</label>
+                        <input type="text" id="test-base-url" placeholder="https://api.openai.com/v1">
+                    </div>
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="password" id="test-api-key" placeholder="sk-...">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>模型名称</label>
+                        <input type="text" id="test-model-name" placeholder="unknown-model">
+                    </div>
+                    <div class="form-group">
+                        <label>测试次数 (50-500)</label>
+                        <input type="number" id="test-iterations" value="200" min="50" max="500">
+                    </div>
+                </div>
+
+                <button class="btn" onclick="startTest()" id="test-btn">🔍 开始测试</button>
+
+                <div class="progress-bar" id="test-progress-bar">
+                    <div class="progress-fill" id="test-progress-fill">0%</div>
+                </div>
+
+                <div class="status" id="test-status"></div>
+
+                <div class="result-card" id="test-results" style="display: none;">
+                    <h3>识别结果</h3>
+                    <div id="test-matches"></div>
+                </div>
+
+                <!-- 修复：canvas 包裹在固定高度的 wrapper 中 -->
+                <div class="chart-container" id="test-chart-container" style="display: none;">
+                    <h3>分布对比</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="test-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 基准管理 Tab -->
+            <div id="baselines" class="tab-content">
+                <h2>已保存的基准模型</h2>
+                <p style="color: #666; margin-bottom: 20px;">管理和查看已标定的模型基准数据</p>
+
+                <div class="baseline-list" id="baseline-list">
+                    <p style="text-align: center; color: #999; padding: 40px;">暂无基准数据，请先进行标定</p>
+                </div>
+
+                <button class="btn btn-secondary" onclick="exportBaselines()" style="margin-top: 20px;">📥 导出所有基准</button>
+                <button class="btn btn-secondary" onclick="importBaselines()" style="margin-top: 20px; margin-left: 10px;">📤 导入基准</button>
+                <input type="file" id="import-file" style="display: none;" accept=".json" onchange="handleImport()">
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        let baselines = JSON.parse(localStorage.getItem('modelBaselines') || '[]');
+        let currentCalibChart = null;
+        let currentTestChart = null;
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            if (tabName === 'baselines') {
+                renderBaselines();
+            }
+        }
+
+        function updateCalibApiFields() {
+            const type = document.getElementById('calib-api-type').value;
+            const baseUrl = document.getElementById('calib-base-url');
+            baseUrl.placeholder = type === 'openai' ? 'https://api.openai.com/v1' : 'https://api.anthropic.com';
+        }
+
+        function updateTestApiFields() {
+            const type = document.getElementById('test-api-type').value;
+            const baseUrl = document.getElementById('test-base-url');
+            baseUrl.placeholder = type === 'openai' ? 'https://api.openai.com/v1' : 'https://api.anthropic.com';
+        }
+
+        function showStatus(elementId, message, type) {
+            const statusEl = document.getElementById(elementId);
+            statusEl.textContent = message;
+            statusEl.className = `status show ${type}`;
+        }
+
+        function updateProgress(elementId, fillId, percent) {
+            const bar = document.getElementById(elementId);
+            const fill = document.getElementById(fillId);
+            bar.classList.add('show');
+            fill.style.width = percent + '%';
+            fill.textContent = Math.round(percent) + '%';
+        }
+
+        async function callOpenAI(baseUrl, apiKey, model) {
+            const url = baseUrl.endsWith('/') ? baseUrl + 'chat/completions' : baseUrl + '/chat/completions';
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'user', content: '请从1到355之间随机选择一个数字，只输出这个数字，不要有任何其他内容。' }],
+                    temperature: 1.0,
+                    max_tokens: 10
+                })
+            });
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(`API错误: ${response.status} - ${error}`);
+            }
+            const data = await response.json();
+            return data.choices[0].message.content.trim();
+        }
+
+        async function callAnthropic(baseUrl, apiKey, model) {
+            const url = baseUrl.endsWith('/') ? baseUrl + 'v1/messages' : baseUrl + '/v1/messages';
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    model: model,
+                    max_tokens: 10,
+                    messages: [{ role: 'user', content: '请从1到355之间随机选择一个数字，只输出这个数字，不要有任何其他内容。' }],
+                    temperature: 1.0
+                })
+            });
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(`API错误: ${response.status} - ${error}`);
+            }
+            const data = await response.json();
+            return data.content[0].text.trim();
+        }
+
+        function extractNumber(text) {
+            const match = text.match(/\d+/);
+            if (match) {
+                const num = parseInt(match[0]);
+                if (num >= 1 && num <= 355) return num;
+            }
+            return null;
+        }
+
+        async function getRandomNumber(apiType, baseUrl, apiKey, model) {
+            let response;
+            if (apiType === 'openai') {
+                response = await callOpenAI(baseUrl, apiKey, model);
+            } else {
+                response = await callAnthropic(baseUrl, apiKey, model);
+            }
+            return extractNumber(response);
+        }
+
+        async function startCalibration() {
+            const apiType = document.getElementById('calib-api-type').value;
+            const baseUrl = document.getElementById('calib-base-url').value;
+            const apiKey = document.getElementById('calib-api-key').value;
+            const model = document.getElementById('calib-model-name').value;
+            const iterations = parseInt(document.getElementById('calib-iterations').value);
+            const baselineName = document.getElementById('calib-baseline-name').value;
+
+            if (!baseUrl || !apiKey || !model || !baselineName) {
+                showStatus('calib-status', '请填写所有必填字段', 'error');
+                return;
+            }
+            if (iterations < 50 || iterations > 500) {
+                showStatus('calib-status', '测试次数必须在50-500之间', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('calib-btn');
+            btn.disabled = true;
+            btn.textContent = '标定中...';
+
+            const results = [];
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < iterations; i++) {
+                try {
+                    const num = await getRandomNumber(apiType, baseUrl, apiKey, model);
+                    if (num !== null) { results.push(num); successCount++; }
+                    else { errorCount++; }
+                } catch (error) { console.error('请求错误:', error); errorCount++; }
+
+                updateProgress('calib-progress-bar', 'calib-progress-fill', ((i + 1) / iterations) * 100);
+                showStatus('calib-status', `进度: ${successCount}成功 / ${errorCount}失败 / ${iterations}总数`, 'info');
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            if (results.length < 10) {
+                showStatus('calib-status', '有效数据太少，无法建立基准', 'error');
+                btn.disabled = false;
+                btn.textContent = '🚀 开始标定';
+                return;
+            }
+
+            const distribution = calculateDistribution(results);
+            const stats = calculateStats(results);
+
+            const baseline = {
+                name: baselineName, model, apiType,
+                timestamp: new Date().toISOString(),
+                iterations: results.length, distribution, stats, rawData: results
+            };
+
+            baselines.push(baseline);
+            localStorage.setItem('modelBaselines', JSON.stringify(baselines));
+            displayCalibrationChart(distribution, baselineName);
+            showStatus('calib-status', `✅ 标定完成！成功: ${successCount}, 失败: ${errorCount}`, 'success');
+            btn.disabled = false;
+            btn.textContent = '🚀 开始标定';
+        }
+
+        async function startTest() {
+            const apiType = document.getElementById('test-api-type').value;
+            const baseUrl = document.getElementById('test-base-url').value;
+            const apiKey = document.getElementById('test-api-key').value;
+            const model = document.getElementById('test-model-name').value;
+            const iterations = parseInt(document.getElementById('test-iterations').value);
+
+            if (!baseUrl || !apiKey || !model) {
+                showStatus('test-status', '请填写所有必填字段', 'error');
+                return;
+            }
+            if (baselines.length === 0) {
+                showStatus('test-status', '没有可用的基准模型，请先进行标定', 'error');
+                return;
+            }
+            if (iterations < 50 || iterations > 500) {
+                showStatus('test-status', '测试次数必须在50-500之间', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('test-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            const results = [];
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < iterations; i++) {
+                try {
+                    const num = await getRandomNumber(apiType, baseUrl, apiKey, model);
+                    if (num !== null) { results.push(num); successCount++; }
+                    else { errorCount++; }
+                } catch (error) { console.error('请求错误:', error); errorCount++; }
+
+                updateProgress('test-progress-bar', 'test-progress-fill', ((i + 1) / iterations) * 100);
+                showStatus('test-status', `进度: ${successCount}成功 / ${errorCount}失败 / ${iterations}总数`, 'info');
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            if (results.length < 10) {
+                showStatus('test-status', '有效数据太少，无法进行匹配', 'error');
+                btn.disabled = false;
+                btn.textContent = '🔍 开始测试';
+                return;
+            }
+
+            const distribution = calculateDistribution(results);
+            const matches = matchBaselines(distribution, results);
+            displayTestResults(matches, distribution, model);
+            showStatus('test-status', `✅ 测试完成！成功: ${successCount}, 失败: ${errorCount}`, 'success');
+            btn.disabled = false;
+            btn.textContent = '🔍 开始测试';
+        }
+
+        function calculateDistribution(numbers) {
+            const counts = new Array(355).fill(0);
+            numbers.forEach(num => { if (num >= 1 && num <= 355) counts[num - 1]++; });
+            const total = numbers.length;
+            return counts.map(c => c / total);
+        }
+
+        function calculateStats(numbers) {
+            const sorted = [...numbers].sort((a, b) => a - b);
+            const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
+            const variance = numbers.reduce((sum, x) => sum + Math.pow(x - mean, 2), 0) / numbers.length;
+            return {
+                mean, median: sorted[Math.floor(sorted.length / 2)],
+                stdDev: Math.sqrt(variance), min: sorted[0],
+                max: sorted[sorted.length - 1], unique: new Set(numbers).size
+            };
+        }
+
+        function calculateSimilarity(dist1, dist2) {
+            let dotProduct = 0, norm1 = 0, norm2 = 0;
+            for (let i = 0; i < dist1.length; i++) {
+                dotProduct += dist1[i] * dist2[i];
+                norm1 += dist1[i] * dist1[i];
+                norm2 += dist2[i] * dist2[i];
+            }
+            const cosineSim = dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+            let jsDiv = 0;
+            const epsilon = 1e-10;
+            for (let i = 0; i < dist1.length; i++) {
+                const p = dist1[i] + epsilon, q = dist2[i] + epsilon, m = (p + q) / 2;
+                jsDiv += (p * Math.log(p / m) + q * Math.log(q / m)) / 2;
+            }
+            return { cosineSimilarity: cosineSim, jsDivergence: jsDiv, overallScore: cosineSim * Math.exp(-jsDiv) };
+        }
+
+        function matchBaselines(testDistribution, testResults) {
+            const testStats = calculateStats(testResults);
+            return baselines.map(baseline => {
+                const similarity = calculateSimilarity(testDistribution, baseline.distribution);
+                const statsDiff = {
+                    meanDiff: Math.abs(testStats.mean - baseline.stats.mean),
+                    stdDevDiff: Math.abs(testStats.stdDev - baseline.stats.stdDev),
+                    medianDiff: Math.abs(testStats.median - baseline.stats.median)
+                };
+                return { baseline, similarity, statsDiff, score: similarity.overallScore };
+            }).sort((a, b) => b.score - a.score);
+        }
+
+        // ===== 修复核心：每次创建图表前销毁旧 canvas 并重建，彻底避免尺寸累积 =====
+        function resetCanvas(canvasId) {
+            const oldCanvas = document.getElementById(canvasId);
+            const wrapper = oldCanvas.parentElement;
+            oldCanvas.remove();
+            const newCanvas = document.createElement('canvas');
+            newCanvas.id = canvasId;
+            wrapper.appendChild(newCanvas);
+            return newCanvas;
+        }
+
+        function displayCalibrationChart(distribution, name) {
+            const container = document.getElementById('calib-chart-container');
+            container.style.display = 'block';
+
+            if (currentCalibChart) {
+                currentCalibChart.destroy();
+                currentCalibChart = null;
+            }
+
+            const canvas = resetCanvas('calib-chart');
+            const ctx = canvas.getContext('2d');
+
+            const bucketSize = 10;
+            const buckets = Math.ceil(355 / bucketSize);
+            const bucketData = new Array(buckets).fill(0);
+            distribution.forEach((val, idx) => { bucketData[Math.floor(idx / bucketSize)] += val; });
+
+            const labels = [];
+            for (let i = 0; i < buckets; i++) {
+                labels.push(`${i * bucketSize + 1}-${Math.min((i + 1) * bucketSize, 355)}`);
+            }
+
+            currentCalibChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: name,
+                        data: bucketData,
+                        backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: '频率' } },
+                        x: {
+                            title: { display: true, text: '数字范围' },
+                            ticks: { maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+
+        function displayTestResults(matches, testDistribution, modelName) {
+            const resultsContainer = document.getElementById('test-results');
+            const matchesContainer = document.getElementById('test-matches');
+            resultsContainer.style.display = 'block';
+            matchesContainer.innerHTML = '';
+
+            if (matches.length === 0) {
+                matchesContainer.innerHTML = '<p style="text-align: center; color: #999;">没有找到匹配的基准</p>';
+                return;
+            }
+
+            matches.slice(0, 3).forEach((match, index) => {
+                const item = document.createElement('div');
+                item.className = 'match-item';
+                item.innerHTML = `
+                    <div class="model-name">#${index + 1} ${match.baseline.name}</div>
+                    <div class="similarity">
+                        <strong>综合匹配度:</strong> ${(match.score * 100).toFixed(2)}%<br>
+                        <strong>余弦相似度:</strong> ${(match.similarity.cosineSimilarity * 100).toFixed(2)}%<br>
+                        <strong>JS散度:</strong> ${match.similarity.jsDivergence.toFixed(4)}<br>
+                        <strong>均值差异:</strong> ${match.statsDiff.meanDiff.toFixed(2)} |
+                        <strong>标准差差异:</strong> ${match.statsDiff.stdDevDiff.toFixed(2)}
+                    </div>`;
+                matchesContainer.appendChild(item);
+            });
+
+            displayComparisonChart(testDistribution, matches[0].baseline.distribution, modelName, matches[0].baseline.name);
+        }
+
+        function displayComparisonChart(testDist, baselineDist, testName, baselineName) {
+            const container = document.getElementById('test-chart-container');
+            container.style.display = 'block';
+
+            if (currentTestChart) {
+                currentTestChart.destroy();
+                currentTestChart = null;
+            }
+
+            const canvas = resetCanvas('test-chart');
+            const ctx = canvas.getContext('2d');
+
+            const bucketSize = 10;
+            const buckets = Math.ceil(355 / bucketSize);
+            const testBuckets = new Array(buckets).fill(0);
+            const baselineBuckets = new Array(buckets).fill(0);
+
+            testDist.forEach((val, idx) => { testBuckets[Math.floor(idx / bucketSize)] += val; });
+            baselineDist.forEach((val, idx) => { baselineBuckets[Math.floor(idx / bucketSize)] += val; });
+
+            const labels = [];
+            for (let i = 0; i < buckets; i++) {
+                labels.push(`${i * bucketSize + 1}-${Math.min((i + 1) * bucketSize, 355)}`);
+            }
+
+            currentTestChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: `测试: ${testName}`,
+                            data: testBuckets,
+                            backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: `基准: ${baselineName}`,
+                            data: baselineBuckets,
+                            backgroundColor: 'rgba(118, 75, 162, 0.6)',
+                            borderColor: 'rgba(118, 75, 162, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: '频率' } },
+                        x: {
+                            title: { display: true, text: '数字范围' },
+                            ticks: { maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+
+        function renderBaselines() {
+            const container = document.getElementById('baseline-list');
+            if (baselines.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">暂无基准数据，请先进行标定</p>';
+                return;
+            }
+            container.innerHTML = '';
+            baselines.forEach((baseline, index) => {
+                const item = document.createElement('div');
+                item.className = 'baseline-item';
+                item.innerHTML = `
+                    <div>
+                        <div class="name">${baseline.name}</div>
+                        <div class="stats">
+                            模型: ${baseline.model} | 样本数: ${baseline.iterations} | 创建: ${new Date(baseline.timestamp).toLocaleString('zh-CN')}<br>
+                            均值: ${baseline.stats.mean.toFixed(2)} | 标准差: ${baseline.stats.stdDev.toFixed(2)} | 唯一值: ${baseline.stats.unique}
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-small" onclick="viewBaseline(${index})">查看</button>
+                        <button class="btn-small danger" onclick="deleteBaseline(${index})">删除</button>
+                    </div>`;
+                container.appendChild(item);
+            });
+        }
+
+        function viewBaseline(index) {
+            const b = baselines[index];
+            alert(`基准: ${b.name}\n模型: ${b.model}\nAPI: ${b.apiType}\n样本: ${b.iterations}\n` +
+                  `时间: ${new Date(b.timestamp).toLocaleString('zh-CN')}\n\n` +
+                  `均值: ${b.stats.mean.toFixed(2)}\n中位数: ${b.stats.median}\n标准差: ${b.stats.stdDev.toFixed(2)}\n` +
+                  `范围: ${b.stats.min}-${b.stats.max}\n唯一值: ${b.stats.unique}`);
+        }
+
+        function deleteBaseline(index) {
+            if (confirm(`确定删除 "${baselines[index].name}"？`)) {
+                baselines.splice(index, 1);
+                localStorage.setItem('modelBaselines', JSON.stringify(baselines));
+                renderBaselines();
+            }
+        }
+
+        function exportBaselines() {
+            if (baselines.length === 0) { alert('没有可导出的基准数据'); return; }
+            const blob = new Blob([JSON.stringify(baselines, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `model-baselines-${Date.now()}.json`;
+            a.click();
+        }
+
+        function importBaselines() { document.getElementById('import-file').click(); }
+
+        function handleImport() {
+            const file = document.getElementById('import-file').files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        baselines = [...baselines, ...imported];
+                        localStorage.setItem('modelBaselines', JSON.stringify(baselines));
+                        renderBaselines();
+                        alert(`成功导入 ${imported.length} 个基准`);
+                    } else { alert('无效的基准数据格式'); }
+                } catch (error) { alert('导入失败: ' + error.message); }
+            };
+            reader.readAsText(file);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('AI模型识别器已加载');
+            console.log(`当前已保存 ${baselines.length} 个基准模型`);
+        });
+    </script>
+</body>
+</html>
