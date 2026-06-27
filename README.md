@@ -6,6 +6,8 @@
 ## 识别精确，区分度大
 <img width="1463" height="599" alt="069a674bef0a8c3c0e1620c2573fc23d" src="https://github.com/user-attachments/assets/2081fd7c-040d-4512-aff3-755926d893e8" />
 
+<img width="1447" height="607" alt="图片" src="https://github.com/user-attachments/assets/0141405c-7d23-4cf0-bbe6-3e3b8a3e9fce" />
+
 ## 一致性好，较少随机因素影响
 
 <img width="1448" height="600" alt="0f64237c164f492dd0d677a97ba981f5" src="https://github.com/user-attachments/assets/07b00a61-ee17-4d39-bb32-8e367d0d03cd" />
