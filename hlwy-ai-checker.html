@@ -139,10 +139,27 @@
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
+            box-shadow: none;
         }
 
         .btn-secondary {
             background: #6c757d;
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            margin-left: 12px;
+        }
+
+        .btn-stop:hover {
+            box-shadow: 0 10px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        .btn-group {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0;
         }
 
         .status {
@@ -200,7 +217,174 @@
             font-weight: 600;
         }
 
-        /* ===== 修复：图表容器固定高度，防止无限增长 ===== */
+        /* ===== 错误日志面板 ===== */
+        .error-log {
+            margin-top: 15px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #f5c6cb;
+            background: #fff;
+            display: none;
+            animation: errorSlideIn 0.3s ease-out;
+        }
+
+        @keyframes errorSlideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .error-log.show {
+            display: block;
+        }
+
+        .error-log-header {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8d7da;
+            gap: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .error-log-header:hover {
+            background: #f1c1c6;
+        }
+
+        .error-icon {
+            font-size: 1.3em;
+            flex-shrink: 0;
+        }
+
+        .error-summary {
+            flex: 1;
+            font-size: 0.95em;
+            color: #721c24;
+            font-weight: 600;
+        }
+
+        .error-toggle-arrow {
+            color: #721c24;
+            transition: transform 0.2s;
+            font-size: 0.9em;
+            flex-shrink: 0;
+        }
+
+        .error-toggle-arrow.expanded {
+            transform: rotate(180deg);
+        }
+
+        .error-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background: #fff5f5;
+        }
+
+        .error-details.expanded {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .error-details ul {
+            list-style: none;
+            padding: 8px 16px;
+        }
+
+        .error-details li {
+            padding: 8px 10px;
+            border-bottom: 1px solid #fde2e4;
+            font-size: 0.88em;
+            color: #555;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .error-details li:last-child {
+            border-bottom: none;
+        }
+
+        .error-details .err-time {
+            color: #999;
+            font-size: 0.85em;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .error-details .err-msg {
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .error-details .err-badge {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .err-badge.network   { background: #ffe0b2; color: #e65100; }
+        .err-badge.auth      { background: #ffcdd2; color: #b71c1c; }
+        .err-badge.ratelimit { background: #fff9c4; color: #f57f17; }
+        .err-badge.server    { background: #e1bee7; color: #6a1b9a; }
+        .err-badge.parse     { background: #b3e5fc; color: #01579b; }
+        .err-badge.other     { background: #e0e0e0; color: #424242; }
+
+        /* 连续失败大警告 */
+        .early-fail-warning {
+            margin-top: 12px;
+            padding: 14px 18px;
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            border: 1px solid #ffb74d;
+            border-left: 5px solid #ff9800;
+            border-radius: 8px;
+            display: none;
+            animation: warnPulse 0.4s ease-out;
+        }
+
+        @keyframes warnPulse {
+            0%   { transform: scale(0.97); }
+            50%  { transform: scale(1.01); }
+            100% { transform: scale(1); }
+        }
+
+        .early-fail-warning.show {
+            display: block;
+        }
+
+        .early-fail-warning .warn-title {
+            font-weight: 700;
+            color: #e65100;
+            margin-bottom: 6px;
+            font-size: 1em;
+        }
+
+        .early-fail-warning .warn-body {
+            color: #bf360c;
+            font-size: 0.92em;
+            line-height: 1.5;
+        }
+
+        .early-fail-warning .warn-suggestion {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 6px;
+            font-size: 0.88em;
+            color: #555;
+        }
+
+        .early-fail-warning .warn-suggestion code {
+            background: #f5f5f5;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.95em;
+        }
+
+        /* ===== 图表容器固定高度 ===== */
         .chart-container {
             margin-top: 30px;
             padding: 20px;
@@ -211,7 +395,7 @@
         .chart-wrapper {
             position: relative;
             width: 100%;
-            height: 400px;  /* 固定高度 */
+            height: 400px;
             max-height: 400px;
             overflow: hidden;
         }
@@ -223,7 +407,6 @@
             width: 100% !important;
             height: 100% !important;
         }
-        /* ===== 修复结束 ===== */
 
         .baseline-list {
             margin-top: 20px;
@@ -362,7 +545,10 @@
                     <input type="text" id="calib-baseline-name" placeholder="例如: GPT-4-Turbo-2024">
                 </div>
 
-                <button class="btn" onclick="startCalibration()" id="calib-btn">🚀 开始标定</button>
+                <div class="btn-group">
+                    <button class="btn" onclick="startCalibration()" id="calib-btn">🚀 开始标定</button>
+                    <button class="btn btn-stop" id="calib-stop-btn" onclick="abortCalibration()" style="display: none;">⏹ 中止</button>
+                </div>
 
                 <div class="progress-bar" id="calib-progress-bar">
                     <div class="progress-fill" id="calib-progress-fill">0%</div>
@@ -370,7 +556,25 @@
 
                 <div class="status" id="calib-status"></div>
 
-                <!-- 修复：canvas 包裹在固定高度的 wrapper 中 -->
+                <!-- 错误日志面板 -->
+                <div class="error-log" id="calib-error-log">
+                    <div class="error-log-header" onclick="toggleErrorDetails('calib')">
+                        <span class="error-icon">⚠️</span>
+                        <span class="error-summary" id="calib-error-summary">发生了一些错误</span>
+                        <span class="error-toggle-arrow" id="calib-error-arrow">▼</span>
+                    </div>
+                    <div class="error-details" id="calib-error-details">
+                        <ul id="calib-error-list"></ul>
+                    </div>
+                </div>
+
+                <!-- 连续失败大警告 -->
+                <div class="early-fail-warning" id="calib-early-warning">
+                    <div class="warn-title">🚨 连续请求失败</div>
+                    <div class="warn-body" id="calib-early-warning-body"></div>
+                    <div class="warn-suggestion" id="calib-early-warning-suggestion"></div>
+                </div>
+
                 <div class="chart-container" id="calib-chart-container" style="display: none;">
                     <h3>分布图表</h3>
                     <div class="chart-wrapper">
@@ -414,7 +618,10 @@
                     </div>
                 </div>
 
-                <button class="btn" onclick="startTest()" id="test-btn">🔍 开始测试</button>
+                <div class="btn-group">
+                    <button class="btn" onclick="startTest()" id="test-btn">🔍 开始测试</button>
+                    <button class="btn btn-stop" id="test-stop-btn" onclick="abortTest()" style="display: none;">⏹ 中止</button>
+                </div>
 
                 <div class="progress-bar" id="test-progress-bar">
                     <div class="progress-fill" id="test-progress-fill">0%</div>
@@ -422,12 +629,30 @@
 
                 <div class="status" id="test-status"></div>
 
+                <!-- 错误日志面板 -->
+                <div class="error-log" id="test-error-log">
+                    <div class="error-log-header" onclick="toggleErrorDetails('test')">
+                        <span class="error-icon">⚠️</span>
+                        <span class="error-summary" id="test-error-summary">发生了一些错误</span>
+                        <span class="error-toggle-arrow" id="test-error-arrow">▼</span>
+                    </div>
+                    <div class="error-details" id="test-error-details">
+                        <ul id="test-error-list"></ul>
+                    </div>
+                </div>
+
+                <!-- 连续失败大警告 -->
+                <div class="early-fail-warning" id="test-early-warning">
+                    <div class="warn-title">🚨 连续请求失败</div>
+                    <div class="warn-body" id="test-early-warning-body"></div>
+                    <div class="warn-suggestion" id="test-early-warning-suggestion"></div>
+                </div>
+
                 <div class="result-card" id="test-results" style="display: none;">
                     <h3>识别结果</h3>
                     <div id="test-matches"></div>
                 </div>
 
-                <!-- 修复：canvas 包裹在固定高度的 wrapper 中 -->
                 <div class="chart-container" id="test-chart-container" style="display: none;">
                     <h3>分布对比</h3>
                     <div class="chart-wrapper">
@@ -454,46 +679,247 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
+        /* ========================================
+         *  全局状态
+         * ======================================== */
         let baselines = JSON.parse(localStorage.getItem('modelBaselines') || '[]');
         let currentCalibChart = null;
-        let currentTestChart = null;
+        let currentTestChart  = null;
 
+        // 中止标志
+        let calibRunning = false;
+        let testRunning  = false;
+
+        /* ========================================
+         *  UI 辅助
+         * ======================================== */
         function switchTab(tabName) {
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             event.target.classList.add('active');
             document.getElementById(tabName).classList.add('active');
-            if (tabName === 'baselines') {
-                renderBaselines();
-            }
+            if (tabName === 'baselines') renderBaselines();
         }
 
         function updateCalibApiFields() {
             const type = document.getElementById('calib-api-type').value;
-            const baseUrl = document.getElementById('calib-base-url');
-            baseUrl.placeholder = type === 'openai' ? 'https://api.openai.com/v1' : 'https://api.anthropic.com';
+            document.getElementById('calib-base-url').placeholder =
+                type === 'openai' ? 'https://api.openai.com/v1' : 'https://api.anthropic.com';
         }
 
         function updateTestApiFields() {
             const type = document.getElementById('test-api-type').value;
-            const baseUrl = document.getElementById('test-base-url');
-            baseUrl.placeholder = type === 'openai' ? 'https://api.openai.com/v1' : 'https://api.anthropic.com';
+            document.getElementById('test-base-url').placeholder =
+                type === 'openai' ? 'https://api.openai.com/v1' : 'https://api.anthropic.com';
         }
 
         function showStatus(elementId, message, type) {
-            const statusEl = document.getElementById(elementId);
-            statusEl.textContent = message;
-            statusEl.className = `status show ${type}`;
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.className = `status show ${type}`;
         }
 
-        function updateProgress(elementId, fillId, percent) {
-            const bar = document.getElementById(elementId);
+        function hideStatus(elementId) {
+            document.getElementById(elementId).className = 'status';
+        }
+
+        function updateProgress(barId, fillId, percent) {
+            const bar  = document.getElementById(barId);
             const fill = document.getElementById(fillId);
             bar.classList.add('show');
             fill.style.width = percent + '%';
-            fill.textContent = Math.round(percent) + '%';
+            fill.textContent  = Math.round(percent) + '%';
         }
 
+        /* ========================================
+         *  错误分类与友好提示
+         * ======================================== */
+        function classifyError(error) {
+            const msg = error.message || String(error);
+
+            // 网络 / CORS
+            if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('net::')) {
+                return {
+                    type: 'network', badge: '网络',
+                    friendly: '无法连接到API服务器',
+                    suggestion: '请检查 Base URL 是否正确、网络是否通畅。如果是跨域问题 (CORS)，可能需要通过后端代理访问。'
+                };
+            }
+
+            // HTTP 状态码
+            const statusMatch = msg.match(/API错误:\s*(\d{3})/);
+            if (statusMatch) {
+                const code = parseInt(statusMatch[1]);
+
+                if (code === 401) return {
+                    type: 'auth', badge: '认证',
+                    friendly: 'API Key 无效或已过期 (401)',
+                    suggestion: '请检查 API Key 是否正确、是否已过期或被撤销。'
+                };
+
+                if (code === 403) return {
+                    type: 'auth', badge: '权限',
+                    friendly: '没有权限访问该模型 (403)',
+                    suggestion: '您的 API Key 可能没有该模型的访问权限，或该模型尚未对您开放。'
+                };
+
+                if (code === 404) return {
+                    type: 'other', badge: '404',
+                    friendly: 'API 端点或模型不存在 (404)',
+                    suggestion: '请检查 Base URL 和模型名称是否正确。常见问题：URL 末尾多了 "/" 或缺少路径前缀。'
+                };
+
+                if (code === 429) return {
+                    type: 'ratelimit', badge: '限频',
+                    friendly: '请求过于频繁，触发速率限制 (429)',
+                    suggestion: '请稍后重试，或降低测试次数。部分服务商对免费额度有严格的 RPM 限制。'
+                };
+
+                if (code === 400) {
+                    // Check for model-specific errors
+                    if (msg.includes('model')) return {
+                        type: 'other', badge: '参数',
+                        friendly: '请求参数错误 — 模型名称可能不正确 (400)',
+                        suggestion: '请确认模型名称拼写正确（区分大小写），例如 "gpt-4o" 而非 "GPT4o"。'
+                    };
+                    return {
+                        type: 'other', badge: '参数',
+                        friendly: '请求参数错误 (400)',
+                        suggestion: '请检查 API 类型是否与 Base URL 匹配（OpenAI 格式 vs Anthropic 格式）。'
+                    };
+                }
+
+                if (code >= 500) return {
+                    type: 'server', badge: '服务端',
+                    friendly: `API 服务端错误 (${code})`,
+                    suggestion: '这是服务端的问题，请稍后重试。如果持续出现，可能该服务暂时不可用。'
+                };
+
+                return {
+                    type: 'other', badge: code.toString(),
+                    friendly: `API 返回错误 (${code})`,
+                    suggestion: '请查看下方错误详情获取更多信息。'
+                };
+            }
+
+            // JSON 解析
+            if (msg.includes('JSON') || msg.includes('Unexpected token')) {
+                return {
+                    type: 'parse', badge: '解析',
+                    friendly: '返回数据格式异常',
+                    suggestion: 'API 返回的不是预期的 JSON 格式。Base URL 可能指向了错误的地址（如网页而非 API 端点）。'
+                };
+            }
+
+            // 超时
+            if (msg.includes('timeout') || msg.includes('Timeout') || msg.includes('AbortError')) {
+                return {
+                    type: 'network', badge: '超时',
+                    friendly: '请求超时',
+                    suggestion: '服务器响应时间过长，请检查网络或稍后重试。'
+                };
+            }
+
+            // 兜底
+            return {
+                type: 'other', badge: '错误',
+                friendly: msg.length > 80 ? msg.substring(0, 80) + '…' : msg,
+                suggestion: '请检查配置后重试。'
+            };
+        }
+
+        /* ========================================
+         *  错误日志面板 管理
+         * ======================================== */
+        // 每个面板的错误计数器
+        const errorState = {
+            calib: { count: 0, consecutive: 0, maxConsecutive: 0, list: [], shownWarning: false },
+            test:  { count: 0, consecutive: 0, maxConsecutive: 0, list: [], shownWarning: false }
+        };
+
+        function resetErrorState(prefix) {
+            errorState[prefix] = { count: 0, consecutive: 0, maxConsecutive: 0, list: [], shownWarning: false };
+            const logEl = document.getElementById(`${prefix}-error-log`);
+            logEl.classList.remove('show');
+            document.getElementById(`${prefix}-error-details`).classList.remove('expanded');
+            document.getElementById(`${prefix}-error-arrow`).classList.remove('expanded');
+            document.getElementById(`${prefix}-error-list`).innerHTML = '';
+            document.getElementById(`${prefix}-early-warning`).classList.remove('show');
+        }
+
+        function addError(prefix, error) {
+            const state = errorState[prefix];
+            const classified = classifyError(error);
+            state.count++;
+            state.consecutive++;
+            if (state.consecutive > state.maxConsecutive) state.maxConsecutive = state.consecutive;
+
+            // 记录（最多保留最近 50 条）
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false });
+            state.list.push({ time: timeStr, classified, raw: error.message || String(error) });
+            if (state.list.length > 50) state.list.shift();
+
+            // 更新面板
+            const logEl = document.getElementById(`${prefix}-error-log`);
+            logEl.classList.add('show');
+
+            const summary = document.getElementById(`${prefix}-error-summary`);
+            summary.textContent = `已发生 ${state.count} 个错误 — 最近: ${classified.friendly}`;
+
+            // 添加列表项
+            const ul = document.getElementById(`${prefix}-error-list`);
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span class="err-time">${timeStr}</span>
+                <span class="err-badge ${classified.type}">${classified.badge}</span>
+                <span class="err-msg">${classified.friendly}</span>`;
+            ul.prepend(li);   // 最新的在上面
+
+            // 超过 50 条移除旧的
+            while (ul.children.length > 50) { ul.removeChild(ul.lastElementChild); }
+
+            // 如果连续失败 >= 5 且尚未警告过，显示大警告
+            if (state.consecutive >= 5 && !state.shownWarning) {
+                state.shownWarning = true;
+                showEarlyWarning(prefix, classified);
+            }
+        }
+
+        function clearConsecutiveErrors(prefix) {
+            errorState[prefix].consecutive = 0;
+        }
+
+        function showEarlyWarning(prefix, classified) {
+            const warning = document.getElementById(`${prefix}-early-warning`);
+            const body = document.getElementById(`${prefix}-early-warning-body`);
+            const sugg = document.getElementById(`${prefix}-early-warning-suggestion`);
+
+            body.textContent = `前面的请求已连续失败 ${errorState[prefix].consecutive} 次，最后的错误类型为「${classified.friendly}」。建议检查配置后重试，或点击中止按钮停止当前任务。`;
+            sugg.innerHTML = `<strong>💡 建议：</strong>${classified.suggestion}`;
+            warning.classList.add('show');
+        }
+
+        function toggleErrorDetails(prefix) {
+            const details = document.getElementById(`${prefix}-error-details`);
+            const arrow   = document.getElementById(`${prefix}-error-arrow`);
+            details.classList.toggle('expanded');
+            arrow.classList.toggle('expanded');
+        }
+
+        /* ========================================
+         *  中止功能
+         * ======================================== */
+        function abortCalibration() {
+            calibRunning = false;
+        }
+        function abortTest() {
+            testRunning = false;
+        }
+
+        /* ========================================
+         *  API 调用
+         * ======================================== */
         async function callOpenAI(baseUrl, apiKey, model) {
             const url = baseUrl.endsWith('/') ? baseUrl + 'chat/completions' : baseUrl + '/chat/completions';
             const response = await fetch(url, {
@@ -510,8 +936,8 @@
                 })
             });
             if (!response.ok) {
-                const error = await response.text();
-                throw new Error(`API错误: ${response.status} - ${error}`);
+                const errorText = await response.text();
+                throw new Error(`API错误: ${response.status} - ${errorText}`);
             }
             const data = await response.json();
             return data.choices[0].message.content.trim();
@@ -524,7 +950,8 @@
                 headers: {
                     'Content-Type': 'application/json',
                     'x-api-key': apiKey,
-                    'anthropic-version': '2023-06-01'
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
                 },
                 body: JSON.stringify({
                     model: model,
@@ -534,8 +961,8 @@
                 })
             });
             if (!response.ok) {
-                const error = await response.text();
-                throw new Error(`API错误: ${response.status} - ${error}`);
+                const errorText = await response.text();
+                throw new Error(`API错误: ${response.status} - ${errorText}`);
             }
             const data = await response.json();
             return data.content[0].text.trim();
@@ -560,13 +987,16 @@
             return extractNumber(response);
         }
 
+        /* ========================================
+         *  标定
+         * ======================================== */
         async function startCalibration() {
-            const apiType = document.getElementById('calib-api-type').value;
-            const baseUrl = document.getElementById('calib-base-url').value;
-            const apiKey = document.getElementById('calib-api-key').value;
-            const model = document.getElementById('calib-model-name').value;
-            const iterations = parseInt(document.getElementById('calib-iterations').value);
-            const baselineName = document.getElementById('calib-baseline-name').value;
+            const apiType      = document.getElementById('calib-api-type').value;
+            const baseUrl      = document.getElementById('calib-base-url').value.trim();
+            const apiKey       = document.getElementById('calib-api-key').value.trim();
+            const model        = document.getElementById('calib-model-name').value.trim();
+            const iterations   = parseInt(document.getElementById('calib-iterations').value);
+            const baselineName = document.getElementById('calib-baseline-name').value.trim();
 
             if (!baseUrl || !apiKey || !model || !baselineName) {
                 showStatus('calib-status', '请填写所有必填字段', 'error');
@@ -577,28 +1007,65 @@
                 return;
             }
 
-            const btn = document.getElementById('calib-btn');
+            // 重置 UI
+            const btn     = document.getElementById('calib-btn');
+            const stopBtn = document.getElementById('calib-stop-btn');
             btn.disabled = true;
             btn.textContent = '标定中...';
+            stopBtn.style.display = 'inline-block';
+            resetErrorState('calib');
+            hideStatus('calib-status');
+            document.getElementById('calib-chart-container').style.display = 'none';
+
+            calibRunning = true;
 
             const results = [];
             let successCount = 0;
-            let errorCount = 0;
+            let errorCount   = 0;
 
             for (let i = 0; i < iterations; i++) {
+                if (!calibRunning) {
+                    showStatus('calib-status', `⏹ 已中止。成功: ${successCount}, 失败: ${errorCount}, 已停止于第 ${i}/${iterations} 次`, 'error');
+                    break;
+                }
+
                 try {
                     const num = await getRandomNumber(apiType, baseUrl, apiKey, model);
-                    if (num !== null) { results.push(num); successCount++; }
-                    else { errorCount++; }
-                } catch (error) { console.error('请求错误:', error); errorCount++; }
+                    if (num !== null) {
+                        results.push(num);
+                        successCount++;
+                        clearConsecutiveErrors('calib');
+                    } else {
+                        errorCount++;
+                        addError('calib', new Error('返回内容无法解析为 1-355 的数字'));
+                    }
+                } catch (error) {
+                    errorCount++;
+                    addError('calib', error);
+                    console.error('请求错误:', error);
+                }
 
                 updateProgress('calib-progress-bar', 'calib-progress-fill', ((i + 1) / iterations) * 100);
-                showStatus('calib-status', `进度: ${successCount}成功 / ${errorCount}失败 / ${iterations}总数`, 'info');
+                showStatus('calib-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${iterations} 总数`, 'info');
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
 
+            stopBtn.style.display = 'none';
+
+            if (!calibRunning && results.length < 10) {
+                // 用户中止且数据不足
+                btn.disabled = false;
+                btn.textContent = '🚀 开始标定';
+                calibRunning = false;
+                return;
+            }
+
+            calibRunning = false;
+
             if (results.length < 10) {
-                showStatus('calib-status', '有效数据太少，无法建立基准', 'error');
+                showStatus('calib-status',
+                    `❌ 标定失败：仅获得 ${results.length} 个有效数据（至少需要 10 个），无法建立基准。请检查 API 配置后重试。`,
+                    'error');
                 btn.disabled = false;
                 btn.textContent = '🚀 开始标定';
                 return;
@@ -616,16 +1083,27 @@
             baselines.push(baseline);
             localStorage.setItem('modelBaselines', JSON.stringify(baselines));
             displayCalibrationChart(distribution, baselineName);
-            showStatus('calib-status', `✅ 标定完成！成功: ${successCount}, 失败: ${errorCount}`, 'success');
+
+            if (errorCount > 0) {
+                showStatus('calib-status',
+                    `✅ 标定完成！成功: ${successCount}, 失败: ${errorCount}（部分请求出错，但有效数据足够建立基准）`,
+                    'success');
+            } else {
+                showStatus('calib-status', `✅ 标定完成！${successCount} 次请求全部成功`, 'success');
+            }
+
             btn.disabled = false;
             btn.textContent = '🚀 开始标定';
         }
 
+        /* ========================================
+         *  测试
+         * ======================================== */
         async function startTest() {
-            const apiType = document.getElementById('test-api-type').value;
-            const baseUrl = document.getElementById('test-base-url').value;
-            const apiKey = document.getElementById('test-api-key').value;
-            const model = document.getElementById('test-model-name').value;
+            const apiType    = document.getElementById('test-api-type').value;
+            const baseUrl    = document.getElementById('test-base-url').value.trim();
+            const apiKey     = document.getElementById('test-api-key').value.trim();
+            const model      = document.getElementById('test-model-name').value.trim();
             const iterations = parseInt(document.getElementById('test-iterations').value);
 
             if (!baseUrl || !apiKey || !model) {
@@ -633,7 +1111,7 @@
                 return;
             }
             if (baselines.length === 0) {
-                showStatus('test-status', '没有可用的基准模型，请先进行标定', 'error');
+                showStatus('test-status', '没有可用的基准模型，请先切换到「标定基准」标签页进行标定', 'error');
                 return;
             }
             if (iterations < 50 || iterations > 500) {
@@ -641,28 +1119,64 @@
                 return;
             }
 
-            const btn = document.getElementById('test-btn');
+            const btn     = document.getElementById('test-btn');
+            const stopBtn = document.getElementById('test-stop-btn');
             btn.disabled = true;
             btn.textContent = '测试中...';
+            stopBtn.style.display = 'inline-block';
+            resetErrorState('test');
+            hideStatus('test-status');
+            document.getElementById('test-results').style.display = 'none';
+            document.getElementById('test-chart-container').style.display = 'none';
+
+            testRunning = true;
 
             const results = [];
             let successCount = 0;
-            let errorCount = 0;
+            let errorCount   = 0;
 
             for (let i = 0; i < iterations; i++) {
+                if (!testRunning) {
+                    showStatus('test-status', `⏹ 已中止。成功: ${successCount}, 失败: ${errorCount}, 已停止于第 ${i}/${iterations} 次`, 'error');
+                    break;
+                }
+
                 try {
                     const num = await getRandomNumber(apiType, baseUrl, apiKey, model);
-                    if (num !== null) { results.push(num); successCount++; }
-                    else { errorCount++; }
-                } catch (error) { console.error('请求错误:', error); errorCount++; }
+                    if (num !== null) {
+                        results.push(num);
+                        successCount++;
+                        clearConsecutiveErrors('test');
+                    } else {
+                        errorCount++;
+                        addError('test', new Error('返回内容无法解析为 1-355 的数字'));
+                    }
+                } catch (error) {
+                    errorCount++;
+                    addError('test', error);
+                    console.error('请求错误:', error);
+                }
 
                 updateProgress('test-progress-bar', 'test-progress-fill', ((i + 1) / iterations) * 100);
-                showStatus('test-status', `进度: ${successCount}成功 / ${errorCount}失败 / ${iterations}总数`, 'info');
+                showStatus('test-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${iterations} 总数`, 'info');
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
 
+            stopBtn.style.display = 'none';
+
+            if (!testRunning && results.length < 10) {
+                btn.disabled = false;
+                btn.textContent = '🔍 开始测试';
+                testRunning = false;
+                return;
+            }
+
+            testRunning = false;
+
             if (results.length < 10) {
-                showStatus('test-status', '有效数据太少，无法进行匹配', 'error');
+                showStatus('test-status',
+                    `❌ 测试失败：仅获得 ${results.length} 个有效数据（至少需要 10 个），无法进行匹配。请检查 API 配置后重试。`,
+                    'error');
                 btn.disabled = false;
                 btn.textContent = '🔍 开始测试';
                 return;
@@ -671,11 +1185,22 @@
             const distribution = calculateDistribution(results);
             const matches = matchBaselines(distribution, results);
             displayTestResults(matches, distribution, model);
-            showStatus('test-status', `✅ 测试完成！成功: ${successCount}, 失败: ${errorCount}`, 'success');
+
+            if (errorCount > 0) {
+                showStatus('test-status',
+                    `✅ 测试完成！成功: ${successCount}, 失败: ${errorCount}（部分请求出错，匹配结果基于成功的数据）`,
+                    'success');
+            } else {
+                showStatus('test-status', `✅ 测试完成！${successCount} 次请求全部成功`, 'success');
+            }
+
             btn.disabled = false;
             btn.textContent = '🔍 开始测试';
         }
 
+        /* ========================================
+         *  数学计算
+         * ======================================== */
         function calculateDistribution(numbers) {
             const counts = new Array(355).fill(0);
             numbers.forEach(num => { if (num >= 1 && num <= 355) counts[num - 1]++; });
@@ -724,7 +1249,9 @@
             }).sort((a, b) => b.score - a.score);
         }
 
-        // ===== 修复核心：每次创建图表前销毁旧 canvas 并重建，彻底避免尺寸累积 =====
+        /* ========================================
+         *  图表
+         * ======================================== */
         function resetCanvas(canvasId) {
             const oldCanvas = document.getElementById(canvasId);
             const wrapper = oldCanvas.parentElement;
@@ -738,24 +1265,16 @@
         function displayCalibrationChart(distribution, name) {
             const container = document.getElementById('calib-chart-container');
             container.style.display = 'block';
-
-            if (currentCalibChart) {
-                currentCalibChart.destroy();
-                currentCalibChart = null;
-            }
+            if (currentCalibChart) { currentCalibChart.destroy(); currentCalibChart = null; }
 
             const canvas = resetCanvas('calib-chart');
             const ctx = canvas.getContext('2d');
-
             const bucketSize = 10;
             const buckets = Math.ceil(355 / bucketSize);
             const bucketData = new Array(buckets).fill(0);
             distribution.forEach((val, idx) => { bucketData[Math.floor(idx / bucketSize)] += val; });
-
             const labels = [];
-            for (let i = 0; i < buckets; i++) {
-                labels.push(`${i * bucketSize + 1}-${Math.min((i + 1) * bucketSize, 355)}`);
-            }
+            for (let i = 0; i < buckets; i++) labels.push(`${i * bucketSize + 1}-${Math.min((i + 1) * bucketSize, 355)}`);
 
             currentCalibChart = new Chart(ctx, {
                 type: 'bar',
@@ -770,18 +1289,12 @@
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     scales: {
                         y: { beginAtZero: true, title: { display: true, text: '频率' } },
-                        x: {
-                            title: { display: true, text: '数字范围' },
-                            ticks: { maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 }
-                        }
+                        x: { title: { display: true, text: '数字范围' }, ticks: { maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 } }
                     },
-                    plugins: {
-                        legend: { position: 'top' }
-                    }
+                    plugins: { legend: { position: 'top' } }
                 }
             });
         }
@@ -793,7 +1306,7 @@
             matchesContainer.innerHTML = '';
 
             if (matches.length === 0) {
-                matchesContainer.innerHTML = '<p style="text-align: center; color: #999;">没有找到匹配的基准</p>';
+                matchesContainer.innerHTML = '<p style="text-align:center;color:#999;">没有找到匹配的基准</p>';
                 return;
             }
 
@@ -818,70 +1331,46 @@
         function displayComparisonChart(testDist, baselineDist, testName, baselineName) {
             const container = document.getElementById('test-chart-container');
             container.style.display = 'block';
-
-            if (currentTestChart) {
-                currentTestChart.destroy();
-                currentTestChart = null;
-            }
+            if (currentTestChart) { currentTestChart.destroy(); currentTestChart = null; }
 
             const canvas = resetCanvas('test-chart');
             const ctx = canvas.getContext('2d');
-
             const bucketSize = 10;
             const buckets = Math.ceil(355 / bucketSize);
-            const testBuckets = new Array(buckets).fill(0);
+            const testBuckets     = new Array(buckets).fill(0);
             const baselineBuckets = new Array(buckets).fill(0);
-
             testDist.forEach((val, idx) => { testBuckets[Math.floor(idx / bucketSize)] += val; });
             baselineDist.forEach((val, idx) => { baselineBuckets[Math.floor(idx / bucketSize)] += val; });
-
             const labels = [];
-            for (let i = 0; i < buckets; i++) {
-                labels.push(`${i * bucketSize + 1}-${Math.min((i + 1) * bucketSize, 355)}`);
-            }
+            for (let i = 0; i < buckets; i++) labels.push(`${i * bucketSize + 1}-${Math.min((i + 1) * bucketSize, 355)}`);
 
             currentTestChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels,
                     datasets: [
-                        {
-                            label: `测试: ${testName}`,
-                            data: testBuckets,
-                            backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                            borderColor: 'rgba(102, 126, 234, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: `基准: ${baselineName}`,
-                            data: baselineBuckets,
-                            backgroundColor: 'rgba(118, 75, 162, 0.6)',
-                            borderColor: 'rgba(118, 75, 162, 1)',
-                            borderWidth: 1
-                        }
+                        { label: `测试: ${testName}`, data: testBuckets, backgroundColor: 'rgba(102, 126, 234, 0.6)', borderColor: 'rgba(102, 126, 234, 1)', borderWidth: 1 },
+                        { label: `基准: ${baselineName}`, data: baselineBuckets, backgroundColor: 'rgba(118, 75, 162, 0.6)', borderColor: 'rgba(118, 75, 162, 1)', borderWidth: 1 }
                     ]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     scales: {
                         y: { beginAtZero: true, title: { display: true, text: '频率' } },
-                        x: {
-                            title: { display: true, text: '数字范围' },
-                            ticks: { maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 }
-                        }
+                        x: { title: { display: true, text: '数字范围' }, ticks: { maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 } }
                     },
-                    plugins: {
-                        legend: { position: 'top' }
-                    }
+                    plugins: { legend: { position: 'top' } }
                 }
             });
         }
 
+        /* ========================================
+         *  基准管理
+         * ======================================== */
         function renderBaselines() {
             const container = document.getElementById('baseline-list');
             if (baselines.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">暂无基准数据，请先进行标定</p>';
+                container.innerHTML = '<p style="text-align:center;color:#999;padding:40px;">暂无基准数据，请先进行标定</p>';
                 return;
             }
             container.innerHTML = '';
@@ -949,6 +1438,9 @@
             reader.readAsText(file);
         }
 
+        /* ========================================
+         *  初始化
+         * ======================================== */
         window.addEventListener('DOMContentLoaded', () => {
             console.log('AI模型识别器已加载');
             console.log(`当前已保存 ${baselines.length} 个基准模型`);
