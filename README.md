@@ -48,4 +48,6 @@
 
 本项目由hanlinwenyuan开发，在Linux Do上发布。
 
-https://linux.do/t/topic/2472419
+# 友链
+
+[LINUX DO - 新的理想型社区](https://linux.do/)
