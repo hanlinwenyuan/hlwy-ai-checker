@@ -1052,7 +1052,7 @@
 
             stopBtn.style.display = 'none';
 
-            if (!calibRunning && results.length < 10) {
+            if (!calibRunning && results.length < 40) {
                 // 用户中止且数据不足
                 btn.disabled = false;
                 btn.textContent = '🚀 开始标定';
@@ -1062,9 +1062,9 @@
 
             calibRunning = false;
 
-            if (results.length < 10) {
+            if (results.length < 40) {
                 showStatus('calib-status',
-                    `❌ 标定失败：仅获得 ${results.length} 个有效数据（至少需要 10 个），无法建立基准。请检查 API 配置后重试。`,
+                    `❌ 标定失败：仅获得 ${results.length} 个有效数据（至少需要 40 个），无法建立基准。请检查 API 配置后重试。`,
                     'error');
                 btn.disabled = false;
                 btn.textContent = '🚀 开始标定';
@@ -1164,7 +1164,7 @@
 
             stopBtn.style.display = 'none';
 
-            if (!testRunning && results.length < 10) {
+            if (!testRunning && results.length < 40) {
                 btn.disabled = false;
                 btn.textContent = '🔍 开始测试';
                 testRunning = false;
@@ -1173,9 +1173,9 @@
 
             testRunning = false;
 
-            if (results.length < 10) {
+            if (results.length < 40) {
                 showStatus('test-status',
-                    `❌ 测试失败：仅获得 ${results.length} 个有效数据（至少需要 10 个），无法进行匹配。请检查 API 配置后重试。`,
+                    `❌ 测试失败：仅获得 ${results.length} 个有效数据（至少需要 40 个），无法进行匹配。请检查 API 配置后重试。`,
                     'error');
                 btn.disabled = false;
                 btn.textContent = '🔍 开始测试';
