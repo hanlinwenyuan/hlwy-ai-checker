@@ -496,6 +496,7 @@
         <div class="header">
             <h1>🎯 AI模型识别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
+            <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">v2.0.0</p>
         </div>
 
         <div class="content">
@@ -791,8 +792,8 @@
 
                 if (code >= 500) return {
                     type: 'server', badge: '服务端',
-                    friendly: `API 服务端错误 (${code})`,
-                    suggestion: '这是服务端的问题，请稍后重试。如果持续出现，可能该服务暂时不可用。'
+                    friendly: `API 返回错误 (${code})`,
+                    suggestion: '请检查配置是否正确：API Key、Base URL、模型名称是否填写无误。如果配置确认无误，可能是服务端暂时不可用，请稍后重试。'
                 };
 
                 return {
@@ -921,12 +922,12 @@
          *  API 调用
          * ======================================== */
         async function callOpenAI(baseUrl, apiKey, model) {
-            const url = baseUrl.endsWith('/') ? baseUrl + 'chat/completions' : baseUrl + '/chat/completions';
-            const response = await fetch(url, {
+            const response = await fetch('/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
+                    'Authorization': `Bearer ${apiKey}`,
+                    'X-Target-Base-URL': baseUrl
                 },
                 body: JSON.stringify({
                     model: model,
@@ -944,14 +945,13 @@
         }
 
         async function callAnthropic(baseUrl, apiKey, model) {
-            const url = baseUrl.endsWith('/') ? baseUrl + 'v1/messages' : baseUrl + '/v1/messages';
-            const response = await fetch(url, {
+            const response = await fetch('/messages', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'x-api-key': apiKey,
                     'anthropic-version': '2023-06-01',
-                    'anthropic-dangerous-direct-browser-access': 'true'
+                    'X-Target-Base-URL': baseUrl
                 },
                 body: JSON.stringify({
                     model: model,
@@ -1427,15 +1427,31 @@
             reader.onload = function(e) {
                 try {
                     const imported = JSON.parse(e.target.result);
-                    if (Array.isArray(imported)) {
-                        baselines = [...baselines, ...imported];
-                        localStorage.setItem('modelBaselines', JSON.stringify(baselines));
-                        renderBaselines();
-                        alert(`成功导入 ${imported.length} 个基准`);
-                    } else { alert('无效的基准数据格式'); }
+                    if (!Array.isArray(imported)) { alert('无效的基准数据格式'); return; }
+                    const valid = imported.filter(b =>
+                        b && typeof b.name === 'string' &&
+                        typeof b.model === 'string' &&
+                        Array.isArray(b.distribution) && b.distribution.length === 355 &&
+                        b.stats && typeof b.stats.mean === 'number' &&
+                        typeof b.stats.stdDev === 'number' &&
+                        typeof b.stats.median === 'number'
+                    );
+                    if (valid.length === 0) {
+                        alert('导入的数据中没有有效的基准记录，请检查文件格式');
+                        return;
+                    }
+                    baselines = [...baselines, ...valid];
+                    localStorage.setItem('modelBaselines', JSON.stringify(baselines));
+                    renderBaselines();
+                    if (valid.length < imported.length) {
+                        alert(`成功导入 ${valid.length} 个基准（${imported.length - valid.length} 个因格式不完整被跳过）`);
+                    } else {
+                        alert(`成功导入 ${valid.length} 个基准`);
+                    }
                 } catch (error) { alert('导入失败: ' + error.message); }
             };
             reader.readAsText(file);
+            document.getElementById('import-file').value = '';
         }
 
         /* ========================================
