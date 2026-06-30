@@ -22,6 +22,8 @@
 
 # 使用指南
 
+去releases下载最新稳定版的zip文件，解压， 然后找到start.py，用python打开。
+
 ## 1.输入官key进行模型标定（带/v1）
 
 <img width="1354" height="852" alt="图片" src="https://github.com/user-attachments/assets/67ff8592-dcf3-407c-9e12-57991447d016" />
