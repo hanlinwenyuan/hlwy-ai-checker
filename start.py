@@ -5,12 +5,77 @@ AI模型识别器后端代理服务器
 """
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 import json
-import urllib.request
-import urllib.error
+import requests as req_lib
 import os
 import webbrowser
 import threading
+import uuid
+import platform
+
+# ========================================
+#  请求头伪装预设 (全小写 key，匹配真实 Node.js SDK)
+# ========================================
+_STAINLESS_OS = {
+    'Darwin': 'MacOS', 'Linux': 'Linux', 'Windows': 'Windows'
+}.get(platform.system(), f'Other:{platform.system()}')
+
+_STAINLESS_ARCH = {
+    'x86_64': 'x64', 'AMD64': 'x64', 'aarch64': 'arm64', 'arm64': 'arm64',
+    'x86': 'x32', 'i386': 'x32', 'i686': 'x32',
+}.get(platform.machine(), f'other:{platform.machine()}')
+
+# Codex 安装 ID — 进程生命周期内固定
+_CODEX_INSTALLATION_ID = str(uuid.uuid4())
+
+HEADER_PRESETS = {
+    'claude-code': {
+        'accept': 'application/json',
+        'accept-encoding': 'gzip, deflate, br',
+        'connection': 'keep-alive',
+        'user-agent': 'Anthropic/JS 0.109.0',
+        'x-stainless-lang': 'js',
+        'x-stainless-package-version': '0.109.0',
+        'x-stainless-os': _STAINLESS_OS,
+        'x-stainless-arch': _STAINLESS_ARCH,
+        'x-stainless-runtime': 'node',
+        'x-stainless-runtime-version': 'v22.13.1',
+        'x-stainless-retry-count': '0',
+    },
+    'codex': {
+        'accept': 'application/json',
+        'accept-encoding': 'gzip, deflate, br',
+        'connection': 'keep-alive',
+        'user-agent': 'OpenAI/JS 6.45.0',
+        'x-stainless-lang': 'js',
+        'x-stainless-package-version': '6.45.0',
+        'x-stainless-os': _STAINLESS_OS,
+        'x-stainless-arch': _STAINLESS_ARCH,
+        'x-stainless-runtime': 'node',
+        'x-stainless-runtime-version': 'v22.13.1',
+        'x-stainless-retry-count': '0',
+        'openai-beta': 'responses_websockets=2026-02-06',
+        'x-codex-installation-id': _CODEX_INSTALLATION_ID,
+    },
+}
+
+# 默认浏览器伪装头
+DEFAULT_BROWSER_HEADERS = {
+    'accept': 'application/json, text/plain, */*',
+    'accept-encoding': 'gzip, deflate, br, zstd',
+    'accept-language': 'en-US,en;q=0.9',
+    'connection': 'keep-alive',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+}
+
+# 创建全局 Session，清除默认头，避免泄漏 python-requests 指纹
+_session = req_lib.Session()
+_session.headers.clear()
+
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+
 
 class ProxyHandler(BaseHTTPRequestHandler):
 
@@ -84,45 +149,48 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 self.send_json_response(400, {'error': '不支持的 API 端点'})
                 return
 
-            # 构建代理请求头
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+            # 获取请求头伪装预设
+            header_preset = self.headers.get('X-Header-Preset', 'default')
+
+            # 构建代理请求头 (全小写 key)
+            if header_preset in HEADER_PRESETS:
+                headers = dict(HEADER_PRESETS[header_preset])
+                # 每次请求动态生成唯一 request-id
+                headers['x-request-id'] = f'req_{uuid.uuid4().hex}'
+            else:
+                headers = dict(DEFAULT_BROWSER_HEADERS)
+
+            # 复制必要的业务请求头 (保持小写 key)
+            header_map = {
+                'Content-Type': 'content-type',
+                'Authorization': 'authorization',
+                'anthropic-version': 'anthropic-version',
+                'x-api-key': 'x-api-key',
             }
+            for src_key, dst_key in header_map.items():
+                val = self.headers.get(src_key)
+                if val:
+                    headers[dst_key] = val
 
-            # 复制必要的请求头
-            for header in ['Content-Type', 'Authorization', 'anthropic-version', 'x-api-key']:
-                if header in self.headers:
-                    headers[header] = self.headers[header]
-
-            # 构建请求
-            req = urllib.request.Request(
-                target_url,
-                data=body,
-                headers=headers,
-                method='POST'
-            )
-
-            # 发送请求
+            # 使用 requests 发送请求 (保留原始 header 大小写)
             try:
-                with urllib.request.urlopen(req, timeout=30) as response:
-                    response_body = response.read()
+                resp = _session.post(
+                    target_url,
+                    data=body,
+                    headers=headers,
+                    timeout=30,
+                )
 
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_cors_headers()
-                    self.end_headers()
-                    self.wfile.write(response_body)
-
-            except urllib.error.HTTPError as e:
-                error_body = e.read()
-                self.send_response(e.code)
+                self.send_response(resp.status_code)
                 self.send_header('Content-Type', 'application/json')
                 self.send_cors_headers()
                 self.end_headers()
-                self.wfile.write(error_body)
+                self.wfile.write(resp.content)
 
-            except urllib.error.URLError as e:
+            except req_lib.exceptions.ConnectionError as e:
                 self.send_json_response(500, {'error': f'网络错误: {str(e)}'})
+            except req_lib.exceptions.Timeout as e:
+                self.send_json_response(504, {'error': f'请求超时: {str(e)}'})
 
         except Exception as e:
             self.send_json_response(500, {'error': f'服务器错误: {str(e)}'})
@@ -139,7 +207,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         """添加 CORS 头"""
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, anthropic-version, x-api-key, X-Target-Base-URL')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, anthropic-version, x-api-key, X-Target-Base-URL, X-Header-Preset')
 
     def log_message(self, format, *args):
         """自定义日志格式"""
@@ -156,11 +224,11 @@ def main():
         print("请确保在包含该文件的目录中运行此脚本")
         return
 
-    server = HTTPServer((HOST, PORT), ProxyHandler)
+    server = ThreadingHTTPServer((HOST, PORT), ProxyHandler)
     url = f'http://{HOST}:{PORT}'
     print(f"""
 ╔════════════════════════════════════════════════════════╗
-║      hlwy-ai-checker v2.0.0 - AI模型识别器              ║
+║      hlwy-ai-checker v2.1.0 - AI模型识别器               ║
 ╚════════════════════════════════════════════════════════╝
 本项目github地址：https://github.com/hanlinwenyuan/hlwy-ai-checker
 

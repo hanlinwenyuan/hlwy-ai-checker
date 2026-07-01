@@ -492,11 +492,53 @@
     </style>
 </head>
 <body>
+    <!-- 检测是否直接打开 HTML 文件（而非通过后端服务） -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            // 立即隐藏页面，防止正常内容闪烁
+            document.documentElement.style.visibility = 'hidden';
+            document.addEventListener('DOMContentLoaded', function() {
+                document.body.innerHTML = `
+                <div style="
+                    display: flex; align-items: center; justify-content: center;
+                    min-height: 100vh; padding: 20px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+                ">
+                    <div style="
+                        background: white; border-radius: 20px; padding: 50px 40px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 600px;
+                        text-align: center;
+                    ">
+                        <div style="font-size: 4em; margin-bottom: 20px;">🚫</div>
+                        <h1 style="color: #e74c3c; margin-bottom: 15px; font-size: 1.8em;">无法直接打开此文件</h1>
+                        <p style="color: #555; font-size: 1.1em; line-height: 1.8; margin-bottom: 25px;">
+                            本工具需要通过后端服务器运行，直接打开 HTML 文件无法正常使用。
+                        </p>
+                        <div style="
+                            background: #f8f9fa; border-radius: 12px; padding: 20px;
+                            text-align: left; border-left: 4px solid #667eea;
+                        ">
+                            <p style="font-weight: 700; color: #333; margin-bottom: 12px;">✅ 正确启动方式：</p>
+                            <code style="
+                                display: block; background: #2d2d2d; color: #f8f8f2;
+                                padding: 12px 16px; border-radius: 8px; font-size: 1.05em;
+                            ">python start.py</code>
+                            <p style="color: #888; font-size: 0.9em; margin-top: 12px;">
+                                在本项目目录下运行上述命令，浏览器会自动打开。
+                            </p>
+                        </div>
+                    </div>
+                </div>`;
+                document.documentElement.style.visibility = 'visible';
+            });
+        }
+    </script>
+
     <div class="container">
         <div class="header">
             <h1>🎯 AI模型识别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
-            <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">v2.0.0</p>
+            <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">v2.1.0</p>
         </div>
 
         <div class="content">
@@ -536,8 +578,23 @@
                         <input type="text" id="calib-model-name" placeholder="gpt-4">
                     </div>
                     <div class="form-group">
+                        <label>请求头伪装</label>
+                        <select id="calib-header-preset">
+                            <option value="default">默认</option>
+                            <option value="claude-code">Claude Code</option>
+                            <option value="codex">Codex CLI</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
                         <label>测试次数 (50-500)</label>
                         <input type="number" id="calib-iterations" value="200" min="50" max="500">
+                    </div>
+                    <div class="form-group">
+                        <label>并发数 (1-50)</label>
+                        <input type="number" id="calib-concurrency" value="1" min="1" max="50">
                     </div>
                 </div>
 
@@ -614,8 +671,23 @@
                         <input type="text" id="test-model-name" placeholder="unknown-model">
                     </div>
                     <div class="form-group">
+                        <label>请求头伪装</label>
+                        <select id="test-header-preset">
+                            <option value="default">默认</option>
+                            <option value="claude-code">Claude Code</option>
+                            <option value="codex">Codex CLI</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
                         <label>测试次数 (50-500)</label>
                         <input type="number" id="test-iterations" value="200" min="50" max="500">
+                    </div>
+                    <div class="form-group">
+                        <label>并发数 (1-50)</label>
+                        <input type="number" id="test-concurrency" value="1" min="1" max="50">
                     </div>
                 </div>
 
@@ -921,14 +993,16 @@
         /* ========================================
          *  API 调用
          * ======================================== */
-        async function callOpenAI(baseUrl, apiKey, model) {
+        async function callOpenAI(baseUrl, apiKey, model, headerPreset) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'X-Target-Base-URL': baseUrl,
+                'X-Header-Preset': headerPreset || 'default'
+            };
             const response = await fetch('/chat/completions', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                    'X-Target-Base-URL': baseUrl
-                },
+                headers,
                 body: JSON.stringify({
                     model: model,
                     messages: [{ role: 'user', content: '请从1到355之间随机选择一个数字，只输出这个数字，不要有任何其他内容。' }],
@@ -944,15 +1018,17 @@
             return data.choices[0].message.content.trim();
         }
 
-        async function callAnthropic(baseUrl, apiKey, model) {
+        async function callAnthropic(baseUrl, apiKey, model, headerPreset) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'X-Target-Base-URL': baseUrl,
+                'X-Header-Preset': headerPreset || 'default'
+            };
             const response = await fetch('/messages', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
-                    'anthropic-version': '2023-06-01',
-                    'X-Target-Base-URL': baseUrl
-                },
+                headers,
                 body: JSON.stringify({
                     model: model,
                     max_tokens: 10,
@@ -977,14 +1053,41 @@
             return null;
         }
 
-        async function getRandomNumber(apiType, baseUrl, apiKey, model) {
+        async function getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset) {
             let response;
             if (apiType === 'openai') {
-                response = await callOpenAI(baseUrl, apiKey, model);
+                response = await callOpenAI(baseUrl, apiKey, model, headerPreset);
             } else {
-                response = await callAnthropic(baseUrl, apiKey, model);
+                response = await callAnthropic(baseUrl, apiKey, model, headerPreset);
             }
             return extractNumber(response);
+        }
+
+        /* ========================================
+         *  并发控制
+         * ======================================== */
+        async function runWithConcurrency(totalCount, concurrency, isRunning, taskFn, onProgress) {
+            let completed = 0;
+            let nextIndex = 0;
+
+            async function worker() {
+                while (isRunning()) {
+                    const currentIndex = nextIndex++;
+                    if (currentIndex >= totalCount) break;
+                    const success = await taskFn(currentIndex);
+                    if (success !== false) {
+                        completed++;
+                        onProgress(completed, totalCount);
+                    }
+                }
+            }
+
+            const workerCount = Math.min(concurrency, totalCount);
+            const workers = [];
+            for (let i = 0; i < workerCount; i++) {
+                workers.push(worker());
+            }
+            await Promise.all(workers);
         }
 
         /* ========================================
@@ -997,6 +1100,8 @@
             const model        = document.getElementById('calib-model-name').value.trim();
             const iterations   = parseInt(document.getElementById('calib-iterations').value);
             const baselineName = document.getElementById('calib-baseline-name').value.trim();
+            const concurrency  = Math.max(1, Math.min(50, parseInt(document.getElementById('calib-concurrency').value) || 1));
+            const headerPreset = document.getElementById('calib-header-preset').value;
 
             if (!baseUrl || !apiKey || !model || !baselineName) {
                 showStatus('calib-status', '请填写所有必填字段', 'error');
@@ -1023,31 +1128,36 @@
             let successCount = 0;
             let errorCount   = 0;
 
-            for (let i = 0; i < iterations; i++) {
-                if (!calibRunning) {
-                    showStatus('calib-status', `⏹ 已中止。成功: ${successCount}, 失败: ${errorCount}, 已停止于第 ${i}/${iterations} 次`, 'error');
-                    break;
-                }
-
-                try {
-                    const num = await getRandomNumber(apiType, baseUrl, apiKey, model);
-                    if (num !== null) {
-                        results.push(num);
-                        successCount++;
-                        clearConsecutiveErrors('calib');
-                    } else {
+            await runWithConcurrency(
+                iterations,
+                concurrency,
+                () => calibRunning,
+                async (i) => {
+                    if (!calibRunning) return false;
+                    try {
+                        const num = await getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset);
+                        if (num !== null) {
+                            results.push(num);
+                            successCount++;
+                            clearConsecutiveErrors('calib');
+                        } else {
+                            errorCount++;
+                            addError('calib', new Error('返回内容无法解析为 1-355 的数字'));
+                        }
+                    } catch (error) {
                         errorCount++;
-                        addError('calib', new Error('返回内容无法解析为 1-355 的数字'));
+                        addError('calib', error);
+                        console.error('请求错误:', error);
                     }
-                } catch (error) {
-                    errorCount++;
-                    addError('calib', error);
-                    console.error('请求错误:', error);
+                },
+                (completed, total) => {
+                    updateProgress('calib-progress-bar', 'calib-progress-fill', (completed / total) * 100);
+                    showStatus('calib-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${total} 总数（并发: ${concurrency}）`, 'info');
                 }
+            );
 
-                updateProgress('calib-progress-bar', 'calib-progress-fill', ((i + 1) / iterations) * 100);
-                showStatus('calib-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${iterations} 总数`, 'info');
-                await new Promise(resolve => setTimeout(resolve, 100));
+            if (!calibRunning) {
+                showStatus('calib-status', `⏹ 已中止。成功: ${successCount}, 失败: ${errorCount}`, 'error');
             }
 
             stopBtn.style.display = 'none';
@@ -1105,6 +1215,8 @@
             const apiKey     = document.getElementById('test-api-key').value.trim();
             const model      = document.getElementById('test-model-name').value.trim();
             const iterations = parseInt(document.getElementById('test-iterations').value);
+            const concurrency = Math.max(1, Math.min(50, parseInt(document.getElementById('test-concurrency').value) || 1));
+            const headerPreset = document.getElementById('test-header-preset').value;
 
             if (!baseUrl || !apiKey || !model) {
                 showStatus('test-status', '请填写所有必填字段', 'error');
@@ -1135,31 +1247,36 @@
             let successCount = 0;
             let errorCount   = 0;
 
-            for (let i = 0; i < iterations; i++) {
-                if (!testRunning) {
-                    showStatus('test-status', `⏹ 已中止。成功: ${successCount}, 失败: ${errorCount}, 已停止于第 ${i}/${iterations} 次`, 'error');
-                    break;
-                }
-
-                try {
-                    const num = await getRandomNumber(apiType, baseUrl, apiKey, model);
-                    if (num !== null) {
-                        results.push(num);
-                        successCount++;
-                        clearConsecutiveErrors('test');
-                    } else {
+            await runWithConcurrency(
+                iterations,
+                concurrency,
+                () => testRunning,
+                async (i) => {
+                    if (!testRunning) return false;
+                    try {
+                        const num = await getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset);
+                        if (num !== null) {
+                            results.push(num);
+                            successCount++;
+                            clearConsecutiveErrors('test');
+                        } else {
+                            errorCount++;
+                            addError('test', new Error('返回内容无法解析为 1-355 的数字'));
+                        }
+                    } catch (error) {
                         errorCount++;
-                        addError('test', new Error('返回内容无法解析为 1-355 的数字'));
+                        addError('test', error);
+                        console.error('请求错误:', error);
                     }
-                } catch (error) {
-                    errorCount++;
-                    addError('test', error);
-                    console.error('请求错误:', error);
+                },
+                (completed, total) => {
+                    updateProgress('test-progress-bar', 'test-progress-fill', (completed / total) * 100);
+                    showStatus('test-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${total} 总数（并发: ${concurrency}）`, 'info');
                 }
+            );
 
-                updateProgress('test-progress-bar', 'test-progress-fill', ((i + 1) / iterations) * 100);
-                showStatus('test-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${iterations} 总数`, 'info');
-                await new Promise(resolve => setTimeout(resolve, 100));
+            if (!testRunning) {
+                showStatus('test-status', `⏹ 已中止。成功: ${successCount}, 失败: ${errorCount}`, 'error');
             }
 
             stopBtn.style.display = 'none';
