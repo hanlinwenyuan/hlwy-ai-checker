@@ -489,6 +489,177 @@
             color: #666;
             margin-top: 5px;
         }
+
+        /* ===== 大横评 样式 ===== */
+        .channel-list {
+            margin-bottom: 20px;
+        }
+
+        .channel-card {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            position: relative;
+            transition: border-color 0.3s;
+        }
+
+        .channel-card:hover {
+            border-color: #667eea;
+        }
+
+        .channel-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .channel-card-header .channel-title {
+            font-weight: 700;
+            font-size: 1.05em;
+            color: #333;
+        }
+
+        .channel-card-header .btn-remove-channel {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .channel-card-header .btn-remove-channel:hover {
+            background: #c82333;
+        }
+
+        .channel-progress {
+            margin-top: 12px;
+        }
+
+        .channel-progress-bar {
+            width: 100%;
+            height: 22px;
+            background: #e0e0e0;
+            border-radius: 11px;
+            overflow: hidden;
+        }
+
+        .channel-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.8em;
+        }
+
+        .channel-status-text {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 6px;
+        }
+
+        .btn-add-channel {
+            padding: 12px 24px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 20px;
+        }
+
+        .btn-add-channel:hover {
+            background: #218838;
+        }
+
+        /* 排行榜 */
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .ranking-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 12px;
+            text-align: left;
+            font-size: 0.95em;
+        }
+
+        .ranking-table th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        .ranking-table th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        .ranking-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.92em;
+        }
+
+        .ranking-table tr:hover td {
+            background: #f0f0ff;
+        }
+
+        .ranking-table tr:last-child td:first-child {
+            border-radius: 0 0 0 8px;
+        }
+
+        .ranking-table tr:last-child td:last-child {
+            border-radius: 0 0 8px 0;
+        }
+
+        .rank-badge {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 0.9em;
+        }
+
+        .rank-1 { background: #ffd700; color: #333; }
+        .rank-2 { background: #c0c0c0; color: #333; }
+        .rank-3 { background: #cd7f32; color: white; }
+        .rank-other { background: #e0e0e0; color: #666; }
+
+        .score-bar {
+            display: inline-block;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        .compare-section-title {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #333;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+        }
     </style>
 </head>
 <body>
@@ -538,7 +709,7 @@
         <div class="header">
             <h1>🎯 AI模型识别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
-            <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">v2.1.0</p>
+            <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">v2.2.0</p>
         </div>
 
         <div class="content">
@@ -546,6 +717,7 @@
                 <button class="tab active" onclick="switchTab('calibrate')">📊 标定基准</button>
                 <button class="tab" onclick="switchTab('test')">🔍 测试识别</button>
                 <button class="tab" onclick="switchTab('baselines')">💾 基准管理</button>
+                <button class="tab" onclick="switchTab('compare')">🏆 大横评</button>
             </div>
 
             <!-- 标定基准 Tab -->
@@ -747,6 +919,55 @@
                 <button class="btn btn-secondary" onclick="importBaselines()" style="margin-top: 20px; margin-left: 10px;">📤 导入基准</button>
                 <input type="file" id="import-file" style="display: none;" accept=".json" onchange="handleImport()">
             </div>
+
+            <!-- 大横评 Tab -->
+            <div id="compare" class="tab-content">
+                <h2>🏆 渠道大横评</h2>
+                <p style="color: #666; margin-bottom: 20px;">同时测试多个渠道（不同中转商的同一模型），与官方基准对比匹配度排名</p>
+
+                <div class="form-group">
+                    <label>选择官方基准</label>
+                    <select id="compare-baseline-select">
+                        <option value="">-- 请先在「标定基准」中建立基准 --</option>
+                    </select>
+                </div>
+
+                <div class="compare-section-title">渠道配置</div>
+
+                <div class="channel-list" id="channel-list"></div>
+
+                <button class="btn-add-channel" onclick="addChannel()">+ 添加渠道</button>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>每渠道测试次数 (50-500)</label>
+                        <input type="number" id="compare-iterations" value="200" min="50" max="500">
+                    </div>
+                    <div class="form-group">
+                        <label>每渠道并发数 (1-50)</label>
+                        <input type="number" id="compare-concurrency" value="5" min="1" max="50">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn" onclick="startCompare()" id="compare-btn">🏆 开始横评</button>
+                    <button class="btn btn-stop" id="compare-stop-btn" onclick="abortCompare()" style="display: none;">⏹ 中止</button>
+                </div>
+
+                <div class="status" id="compare-status"></div>
+
+                <div class="result-card" id="compare-results" style="display: none;">
+                    <h3>🏆 横评排行榜</h3>
+                    <div id="compare-ranking"></div>
+                </div>
+
+                <div class="chart-container" id="compare-chart-container" style="display: none;">
+                    <h3>分布对比（所有渠道 vs 基准）</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="compare-chart"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -772,6 +993,7 @@
             event.target.classList.add('active');
             document.getElementById(tabName).classList.add('active');
             if (tabName === 'baselines') renderBaselines();
+            if (tabName === 'compare') refreshBaselineSelect();
         }
 
         function updateCalibApiFields() {
@@ -1226,6 +1448,11 @@
                 showStatus('test-status', '没有可用的基准模型，请先切换到「标定基准」标签页进行标定', 'error');
                 return;
             }
+            const oldBaselines = baselines.filter(b => b.stats.mode == null);
+            if (oldBaselines.length > 0) {
+                showStatus('test-status', `有 ${oldBaselines.length} 个旧版基准缺少众数数据（${oldBaselines.map(b => b.name).join('、')}），请删除后重新标定`, 'error');
+                return;
+            }
             if (iterations < 50 || iterations > 500) {
                 showStatus('test-status', '测试次数必须在50-500之间', 'error');
                 return;
@@ -1329,14 +1556,21 @@
             const sorted = [...numbers].sort((a, b) => a - b);
             const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
             const variance = numbers.reduce((sum, x) => sum + Math.pow(x - mean, 2), 0) / numbers.length;
+            const freq = {};
+            numbers.forEach(n => { freq[n] = (freq[n] || 0) + 1; });
+            let modeVal = numbers[0], modeCount = 0;
+            for (const [k, v] of Object.entries(freq)) {
+                if (v > modeCount) { modeCount = v; modeVal = parseInt(k); }
+            }
             return {
                 mean, median: sorted[Math.floor(sorted.length / 2)],
                 stdDev: Math.sqrt(variance), min: sorted[0],
-                max: sorted[sorted.length - 1], unique: new Set(numbers).size
+                max: sorted[sorted.length - 1], unique: new Set(numbers).size,
+                mode: modeVal, modeCount
             };
         }
 
-        function calculateSimilarity(dist1, dist2) {
+        function calculateSimilarity(dist1, dist2, stats1, stats2) {
             let dotProduct = 0, norm1 = 0, norm2 = 0;
             for (let i = 0; i < dist1.length; i++) {
                 dotProduct += dist1[i] * dist2[i];
@@ -1350,19 +1584,28 @@
                 const p = dist1[i] + epsilon, q = dist2[i] + epsilon, m = (p + q) / 2;
                 jsDiv += (p * Math.log(p / m) + q * Math.log(q / m)) / 2;
             }
-            return { cosineSimilarity: cosineSim, jsDivergence: jsDiv, overallScore: cosineSim * Math.exp(-jsDiv) };
+
+            const distribScore = cosineSim * Math.exp(-jsDiv);
+            let modeScore = 0;
+            if (stats1 && stats2) {
+                const mode1 = stats1.mode, mode2 = stats2.mode;
+                if (mode1 === mode2) {
+                    modeScore = 1.0;
+                } else {
+                    const diff = Math.abs(mode1 - mode2);
+                    modeScore = Math.max(0, 1 - diff / 50);
+                }
+            }
+            const overallScore = modeScore * 0.5 + distribScore * 0.5;
+            return { cosineSimilarity: cosineSim, jsDivergence: jsDiv, modeScore, overallScore };
         }
 
         function matchBaselines(testDistribution, testResults) {
             const testStats = calculateStats(testResults);
             return baselines.map(baseline => {
-                const similarity = calculateSimilarity(testDistribution, baseline.distribution);
-                const statsDiff = {
-                    meanDiff: Math.abs(testStats.mean - baseline.stats.mean),
-                    stdDevDiff: Math.abs(testStats.stdDev - baseline.stats.stdDev),
-                    medianDiff: Math.abs(testStats.median - baseline.stats.median)
-                };
-                return { baseline, similarity, statsDiff, score: similarity.overallScore };
+                const similarity = calculateSimilarity(testDistribution, baseline.distribution, testStats, baseline.stats);
+                const modeMatch = testStats.mode === baseline.stats.mode;
+                return { baseline, similarity, testStats, score: similarity.overallScore, modeMatch };
             }).sort((a, b) => b.score - a.score);
         }
 
@@ -1434,10 +1677,9 @@
                     <div class="model-name">#${index + 1} ${match.baseline.name}</div>
                     <div class="similarity">
                         <strong>综合匹配度:</strong> ${(match.score * 100).toFixed(2)}%<br>
+                        <strong>众数匹配:</strong> ${(match.similarity.modeScore * 100).toFixed(0)}%（测试=${match.testStats.mode}, 基准=${match.baseline.stats.mode}）<br>
                         <strong>余弦相似度:</strong> ${(match.similarity.cosineSimilarity * 100).toFixed(2)}%<br>
-                        <strong>JS散度:</strong> ${match.similarity.jsDivergence.toFixed(4)}<br>
-                        <strong>均值差异:</strong> ${match.statsDiff.meanDiff.toFixed(2)} |
-                        <strong>标准差差异:</strong> ${match.statsDiff.stdDevDiff.toFixed(2)}
+                        <strong>JS散度:</strong> ${match.similarity.jsDivergence.toFixed(4)}
                     </div>`;
                 matchesContainer.appendChild(item);
             });
@@ -1504,6 +1746,8 @@
                     </div>
                     <div class="actions">
                         <button class="btn-small" onclick="viewBaseline(${index})">查看</button>
+                        <button class="btn-small" onclick="renameBaseline(${index})">重命名</button>
+                        <button class="btn-small" onclick="exportSingleBaseline(${index})">导出</button>
                         <button class="btn-small danger" onclick="deleteBaseline(${index})">删除</button>
                     </div>`;
                 container.appendChild(item);
@@ -1514,6 +1758,8 @@
             const b = baselines[index];
             alert(`基准: ${b.name}\n模型: ${b.model}\nAPI: ${b.apiType}\n样本: ${b.iterations}\n` +
                   `时间: ${new Date(b.timestamp).toLocaleString('zh-CN')}\n\n` +
+                  `众数: ${b.stats.mode != null ? b.stats.mode : '(旧数据无此字段)'}` +
+                  `${b.stats.modeCount ? ' (出现 ' + b.stats.modeCount + ' 次)' : ''}\n` +
                   `均值: ${b.stats.mean.toFixed(2)}\n中位数: ${b.stats.median}\n标准差: ${b.stats.stdDev.toFixed(2)}\n` +
                   `范围: ${b.stats.min}-${b.stats.max}\n唯一值: ${b.stats.unique}`);
         }
@@ -1524,6 +1770,25 @@
                 localStorage.setItem('modelBaselines', JSON.stringify(baselines));
                 renderBaselines();
             }
+        }
+
+        function renameBaseline(index) {
+            const oldName = baselines[index].name;
+            const newName = prompt('请输入新的基准名称：', oldName);
+            if (newName !== null && newName.trim() !== '') {
+                baselines[index].name = newName.trim();
+                localStorage.setItem('modelBaselines', JSON.stringify(baselines));
+                renderBaselines();
+            }
+        }
+
+        function exportSingleBaseline(index) {
+            const baseline = baselines[index];
+            const blob = new Blob([JSON.stringify([baseline], null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `baseline-${baseline.name}-${Date.now()}.json`;
+            a.click();
         }
 
         function exportBaselines() {
@@ -1569,6 +1834,359 @@
             };
             reader.readAsText(file);
             document.getElementById('import-file').value = '';
+        }
+
+        /* ========================================
+         *  大横评
+         * ======================================== */
+        let compareChannels = [];
+        let compareRunning  = false;
+        let currentCompareChart = null;
+        let compareChannelCounter = 0;
+
+        const CHANNEL_COLORS = [
+            { bg: 'rgba(102, 126, 234, 0.6)', border: 'rgba(102, 126, 234, 1)' },
+            { bg: 'rgba(234, 102, 102, 0.6)', border: 'rgba(234, 102, 102, 1)' },
+            { bg: 'rgba(102, 234, 156, 0.6)', border: 'rgba(102, 234, 156, 1)' },
+            { bg: 'rgba(234, 190, 102, 0.6)', border: 'rgba(234, 190, 102, 1)' },
+            { bg: 'rgba(190, 102, 234, 0.6)', border: 'rgba(190, 102, 234, 1)' },
+            { bg: 'rgba(102, 210, 234, 0.6)', border: 'rgba(102, 210, 234, 1)' },
+            { bg: 'rgba(234, 102, 190, 0.6)', border: 'rgba(234, 102, 190, 1)' },
+            { bg: 'rgba(156, 234, 102, 0.6)', border: 'rgba(156, 234, 102, 1)' },
+        ];
+
+        function refreshBaselineSelect() {
+            const sel = document.getElementById('compare-baseline-select');
+            const oldVal = sel.value;
+            sel.innerHTML = '';
+            if (baselines.length === 0) {
+                sel.innerHTML = '<option value="">-- 请先在「标定基准」中建立基准 --</option>';
+                return;
+            }
+            baselines.forEach((b, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `${b.name}（${b.model}，${b.iterations} 样本）`;
+                sel.appendChild(opt);
+            });
+            if (oldVal !== '' && parseInt(oldVal) < baselines.length) sel.value = oldVal;
+        }
+
+        function addChannel() {
+            compareChannelCounter++;
+            const id = compareChannelCounter;
+            const ch = { id, name: `渠道 ${id}` };
+            compareChannels.push(ch);
+            const container = document.getElementById('channel-list');
+            container.appendChild(buildChannelCard(ch, compareChannels.length));
+        }
+
+        function removeChannel(id) {
+            compareChannels = compareChannels.filter(c => c.id !== id);
+            const card = document.getElementById(`channel-card-${id}`);
+            if (card) card.remove();
+            updateChannelNumbers();
+        }
+
+        function updateChannelNumbers() {
+            compareChannels.forEach((ch, idx) => {
+                const title = document.querySelector(`#channel-card-${ch.id} .channel-title`);
+                if (title) title.textContent = `#${idx + 1} 渠道配置`;
+            });
+        }
+
+        function buildChannelCard(ch, idx) {
+            const div = document.createElement('div');
+            div.className = 'channel-card';
+            div.id = `channel-card-${ch.id}`;
+            div.innerHTML = `
+                <div class="channel-card-header">
+                    <span class="channel-title">#${idx} 渠道配置</span>
+                    <button class="btn-remove-channel" onclick="removeChannel(${ch.id})">✕ 删除</button>
+                </div>
+                <div class="form-group">
+                    <label>渠道名称</label>
+                    <input type="text" id="ch-name-${ch.id}" value="${ch.name}" placeholder="例如：中转A">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>API 类型</label>
+                        <select id="ch-api-type-${ch.id}">
+                            <option value="openai">OpenAI 兼容格式</option>
+                            <option value="anthropic">Anthropic Claude API</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>请求头伪装</label>
+                        <select id="ch-header-preset-${ch.id}">
+                            <option value="default">默认</option>
+                            <option value="claude-code">Claude Code</option>
+                            <option value="codex">Codex CLI</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Base URL</label>
+                        <input type="text" id="ch-base-url-${ch.id}" placeholder="https://api.openai.com/v1">
+                    </div>
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="password" id="ch-api-key-${ch.id}" placeholder="sk-...">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>模型名称</label>
+                    <input type="text" id="ch-model-${ch.id}" placeholder="gpt-4">
+                </div>
+                <div class="channel-progress" id="ch-progress-${ch.id}" style="display:none;">
+                    <div class="channel-progress-bar">
+                        <div class="channel-progress-fill" id="ch-progress-fill-${ch.id}">0%</div>
+                    </div>
+                    <div class="channel-status-text" id="ch-status-${ch.id}"></div>
+                </div>`;
+            return div;
+        }
+
+        function getChannelConfig(id) {
+            return {
+                id,
+                name:         document.getElementById(`ch-name-${id}`).value.trim(),
+                apiType:      document.getElementById(`ch-api-type-${id}`).value,
+                baseUrl:      document.getElementById(`ch-base-url-${id}`).value.trim(),
+                apiKey:       document.getElementById(`ch-api-key-${id}`).value.trim(),
+                model:        document.getElementById(`ch-model-${id}`).value.trim(),
+                headerPreset: document.getElementById(`ch-header-preset-${id}`).value,
+            };
+        }
+
+        function abortCompare() {
+            compareRunning = false;
+        }
+
+        async function startCompare() {
+            const baselineIdx = document.getElementById('compare-baseline-select').value;
+            if (baselineIdx === '' || baselines.length === 0) {
+                showStatus('compare-status', '请先选择一个官方基准', 'error');
+                return;
+            }
+            const selBaseline = baselines[parseInt(baselineIdx)];
+            if (selBaseline.stats.mode == null) {
+                showStatus('compare-status', `基准「${selBaseline.name}」是旧版数据，缺少众数信息，请删除后重新标定`, 'error');
+                return;
+            }
+            if (compareChannels.length < 1) {
+                showStatus('compare-status', '请至少添加一个渠道', 'error');
+                return;
+            }
+
+            const iterations  = Math.max(50, Math.min(500, parseInt(document.getElementById('compare-iterations').value) || 200));
+            const concurrency = Math.max(1, Math.min(50, parseInt(document.getElementById('compare-concurrency').value) || 5));
+            const baseline    = baselines[parseInt(baselineIdx)];
+
+            const channels = compareChannels.map(ch => getChannelConfig(ch.id));
+            for (const ch of channels) {
+                if (!ch.baseUrl || !ch.apiKey || !ch.model || !ch.name) {
+                    showStatus('compare-status', `渠道「${ch.name || ch.id}」信息不完整，请填写所有字段`, 'error');
+                    return;
+                }
+            }
+
+            const btn     = document.getElementById('compare-btn');
+            const stopBtn = document.getElementById('compare-stop-btn');
+            btn.disabled = true;
+            btn.textContent = '横评中...';
+            stopBtn.style.display = 'inline-block';
+            hideStatus('compare-status');
+            document.getElementById('compare-results').style.display = 'none';
+            document.getElementById('compare-chart-container').style.display = 'none';
+
+            compareRunning = true;
+
+            channels.forEach(ch => {
+                const prog = document.getElementById(`ch-progress-${ch.id}`);
+                prog.style.display = 'block';
+                const fill = document.getElementById(`ch-progress-fill-${ch.id}`);
+                fill.style.width = '0%';
+                fill.textContent = '0%';
+                document.getElementById(`ch-status-${ch.id}`).textContent = '等待中...';
+            });
+
+            showStatus('compare-status', `正在并行测试 ${channels.length} 个渠道...`, 'info');
+
+            const channelResults = await Promise.all(channels.map(ch => runChannelTest(ch, iterations, concurrency)));
+
+            stopBtn.style.display = 'none';
+            compareRunning = false;
+
+            const validResults = channelResults.filter(r => r.results.length >= 40);
+            if (validResults.length === 0) {
+                showStatus('compare-status', '所有渠道均未获得足够数据（至少 40 个），无法进行排名', 'error');
+                btn.disabled = false;
+                btn.textContent = '🏆 开始横评';
+                return;
+            }
+
+            const ranked = validResults.map(r => {
+                const dist = calculateDistribution(r.results);
+                const stats = calculateStats(r.results);
+                const similarity = calculateSimilarity(dist, baseline.distribution, stats, baseline.stats);
+                return {
+                    channel: r.channel,
+                    distribution: dist,
+                    stats,
+                    similarity,
+                    score: similarity.overallScore,
+                    successCount: r.successCount,
+                    errorCount: r.errorCount,
+                    totalResults: r.results.length,
+                };
+            }).sort((a, b) => b.score - a.score);
+
+            displayCompareRanking(ranked, baseline);
+            displayCompareChart(ranked, baseline);
+
+            const failedChannels = channelResults.filter(r => r.results.length < 40);
+            let msg = `横评完成！${validResults.length} 个渠道成功排名`;
+            if (failedChannels.length > 0) {
+                msg += `，${failedChannels.length} 个渠道数据不足未参与排名`;
+            }
+            showStatus('compare-status', msg, 'success');
+
+            btn.disabled = false;
+            btn.textContent = '🏆 开始横评';
+        }
+
+        async function runChannelTest(channel, iterations, concurrency) {
+            const results = [];
+            let successCount = 0;
+            let errorCount   = 0;
+
+            await runWithConcurrency(
+                iterations,
+                concurrency,
+                () => compareRunning,
+                async () => {
+                    if (!compareRunning) return false;
+                    try {
+                        const num = await getRandomNumber(channel.apiType, channel.baseUrl, channel.apiKey, channel.model, channel.headerPreset);
+                        if (num !== null) {
+                            results.push(num);
+                            successCount++;
+                        } else {
+                            errorCount++;
+                        }
+                    } catch (e) {
+                        errorCount++;
+                    }
+                },
+                (completed, total) => {
+                    const pct = (completed / total) * 100;
+                    const fill = document.getElementById(`ch-progress-fill-${channel.id}`);
+                    fill.style.width = pct + '%';
+                    fill.textContent = Math.round(pct) + '%';
+                    document.getElementById(`ch-status-${channel.id}`).textContent =
+                        `${successCount} 成功 / ${errorCount} 失败 / ${total} 总数`;
+                }
+            );
+
+            const statusEl = document.getElementById(`ch-status-${channel.id}`);
+            if (results.length >= 40) {
+                statusEl.textContent = `✅ 完成 — ${successCount} 成功, ${errorCount} 失败`;
+                statusEl.style.color = '#155724';
+            } else {
+                statusEl.textContent = `❌ 数据不足 (${results.length}/40) — ${errorCount} 失败`;
+                statusEl.style.color = '#721c24';
+            }
+
+            return { channel, results, successCount, errorCount };
+        }
+
+        function displayCompareRanking(ranked, baseline) {
+            const container = document.getElementById('compare-ranking');
+            const resultsCard = document.getElementById('compare-results');
+            resultsCard.style.display = 'block';
+
+            let html = `<p style="color:#666;margin-bottom:12px;">基准：<strong>${baseline.name}</strong>（${baseline.model}）</p>`;
+            html += `<table class="ranking-table"><thead><tr>
+                <th>排名</th><th>渠道名称</th><th>综合匹配度</th>
+                <th>众数匹配</th><th>余弦相似度</th><th>JS散度</th><th>数据量</th>
+            </tr></thead><tbody>`;
+
+            ranked.forEach((r, i) => {
+                const rankClass = i < 3 ? `rank-${i + 1}` : 'rank-other';
+                const scorePct  = (r.score * 100).toFixed(2);
+                const barWidth  = Math.max(5, r.score * 120);
+                const modeMatch = r.stats.mode === baseline.stats.mode ? '✅' : '❌';
+                html += `<tr>
+                    <td><span class="rank-badge ${rankClass}">${i + 1}</span></td>
+                    <td><strong>${r.channel.name}</strong></td>
+                    <td>${scorePct}%<span class="score-bar" style="width:${barWidth}px;"></span></td>
+                    <td>${modeMatch} ${r.stats.mode}（基准${baseline.stats.mode}）</td>
+                    <td>${(r.similarity.cosineSimilarity * 100).toFixed(2)}%</td>
+                    <td>${r.similarity.jsDivergence.toFixed(4)}</td>
+                    <td>${r.totalResults}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function displayCompareChart(ranked, baseline) {
+            const container = document.getElementById('compare-chart-container');
+            container.style.display = 'block';
+            if (currentCompareChart) { currentCompareChart.destroy(); currentCompareChart = null; }
+
+            const canvas = resetCanvas('compare-chart');
+            const ctx = canvas.getContext('2d');
+            const bucketSize = 10;
+            const buckets = Math.ceil(355 / bucketSize);
+            const labels = [];
+            for (let i = 0; i < buckets; i++) labels.push(`${i * bucketSize + 1}-${Math.min((i + 1) * bucketSize, 355)}`);
+
+            const baselineBuckets = new Array(buckets).fill(0);
+            baseline.distribution.forEach((val, idx) => { baselineBuckets[Math.floor(idx / bucketSize)] += val; });
+
+            const datasets = [{
+                label: `基准: ${baseline.name}`,
+                data: baselineBuckets,
+                backgroundColor: 'rgba(118, 75, 162, 0.4)',
+                borderColor: 'rgba(118, 75, 162, 1)',
+                borderWidth: 2,
+                type: 'line',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                order: 0,
+            }];
+
+            ranked.forEach((r, i) => {
+                const color = CHANNEL_COLORS[i % CHANNEL_COLORS.length];
+                const chBuckets = new Array(buckets).fill(0);
+                r.distribution.forEach((val, idx) => { chBuckets[Math.floor(idx / bucketSize)] += val; });
+                datasets.push({
+                    label: r.channel.name,
+                    data: chBuckets,
+                    backgroundColor: color.bg,
+                    borderColor: color.border,
+                    borderWidth: 1,
+                    order: i + 1,
+                });
+            });
+
+            currentCompareChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: '频率' } },
+                        x: { title: { display: true, text: '数字范围' }, ticks: { maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 } }
+                    },
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
         }
 
         /* ========================================

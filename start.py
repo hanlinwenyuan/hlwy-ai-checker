@@ -228,7 +228,7 @@ def main():
     url = f'http://{HOST}:{PORT}'
     print(f"""
 ╔════════════════════════════════════════════════════════╗
-║      hlwy-ai-checker v2.1.0 - AI模型识别器               ║
+║      hlwy-ai-checker v2.2.0 - AI模型识别器               ║
 ╚════════════════════════════════════════════════════════╝
 本项目github地址：https://github.com/hanlinwenyuan/hlwy-ai-checker
 
