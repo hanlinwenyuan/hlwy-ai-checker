@@ -65,16 +65,6 @@ python start.py
 
 本项目由 [hanlinwenyuan](https://github.com/hanlinwenyuan) 开发，在 [Linux Do](https://linux.do/) 上发布。
 
-## Star History
-
-<a href="https://star-history.dera.page/#hanlinwenyuan/hlwy-ai-checker&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=hanlinwenyuan/hlwy-ai-checker&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=hanlinwenyuan/hlwy-ai-checker&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=hanlinwenyuan/hlwy-ai-checker&type=date&legend=top-left" />
- </picture>
-</a>
-
 # 友链
 
 [LINUX DO - 新的理想型社区](https://linux.do/)
