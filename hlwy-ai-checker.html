@@ -134,10 +134,6 @@
             gap: 16px;
         }
 
-        .form-row-three {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
         .btn {
             padding: 10px 20px;
             background: var(--accent);
@@ -886,6 +882,73 @@
             min-width: 760px;
         }
 
+        /* ===== 更新提示弹窗 ===== */
+        .update-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 999;
+        }
+
+        .update-dialog {
+            width: 100%;
+            max-width: 420px;
+            background: var(--surface);
+            border: 1px solid var(--border-strong);
+            border-radius: 8px;
+            padding: 20px 22px 18px;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+        }
+
+        .update-dialog h3 {
+            font-size: 1.05em;
+            margin-bottom: 8px;
+        }
+
+        .update-dialog .update-ver {
+            font-size: 0.9em;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        .update-notes {
+            max-height: 160px;
+            overflow-y: auto;
+            font-size: 0.85em;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+        }
+
+        .update-pre-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.82em;
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+
+        .update-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .update-status {
+            font-size: 0.85em;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
         /* ===== 响应式：中等窗口 ===== */
         @media (max-width: 860px) {
             body { padding: 16px 14px 40px; }
@@ -1020,7 +1083,11 @@
         <div class="header">
             <h1>🎯 hlwy-ai-checker AI 模型鉴别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
-            <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">v2.5-pre1</p>
+            <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">
+                v2.5.0
+                <a href="javascript:void(0)" onclick="checkForUpdate(true)"
+                   style="margin-left: 8px; color: inherit;">检查更新</a>
+            </p>
         </div>
 
         <div class="content">
@@ -1082,7 +1149,7 @@
 
                 <span class="advanced-toggle" onclick="toggleQuickAdvanced()" id="quick-advanced-toggle">⚙️ 高级选项（一般不用改）▼</span>
                 <div class="advanced-panel" id="quick-advanced-panel">
-                    <div class="form-row form-row-three">
+                    <div class="form-row">
                         <div class="form-group">
                             <label>测试次数 (50-500)</label>
                             <input type="number" id="quick-iterations" value="100" min="50" max="500">
@@ -1090,10 +1157,6 @@
                         <div class="form-group">
                             <label>并发数 (1-50)</label>
                             <input type="number" id="quick-concurrency" value="5" min="1" max="50">
-                        </div>
-                        <div class="form-group">
-                            <label>请求间隔 (毫秒，0=关闭)</label>
-                            <input type="number" id="quick-request-interval" value="0" min="0" max="60000" step="100">
                         </div>
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
@@ -1191,7 +1254,7 @@
                     </div>
                 </div>
 
-                <div class="form-row form-row-three">
+                <div class="form-row">
                     <div class="form-group">
                         <label>测试次数 (50-500)</label>
                         <input type="number" id="calib-iterations" value="200" min="50" max="500">
@@ -1199,10 +1262,6 @@
                     <div class="form-group">
                         <label>并发数 (1-50)</label>
                         <input type="number" id="calib-concurrency" value="1" min="1" max="50">
-                    </div>
-                    <div class="form-group">
-                        <label>请求间隔 (毫秒，0=关闭)</label>
-                        <input type="number" id="calib-request-interval" value="0" min="0" max="60000" step="100">
                     </div>
                 </div>
 
@@ -1289,7 +1348,7 @@
                     </div>
                 </div>
 
-                <div class="form-row form-row-three">
+                <div class="form-row">
                     <div class="form-group">
                         <label>测试次数 (50-500)</label>
                         <input type="number" id="test-iterations" value="200" min="50" max="500">
@@ -1297,10 +1356,6 @@
                     <div class="form-group">
                         <label>并发数 (1-50)</label>
                         <input type="number" id="test-concurrency" value="1" min="1" max="50">
-                    </div>
-                    <div class="form-group">
-                        <label>请求间隔 (毫秒，0=关闭)</label>
-                        <input type="number" id="test-request-interval" value="0" min="0" max="60000" step="100">
                     </div>
                 </div>
 
@@ -1379,7 +1434,7 @@
 
                 <button class="btn-add-channel" onclick="addChannel()">+ 添加渠道</button>
 
-                <div class="form-row form-row-three">
+                <div class="form-row">
                     <div class="form-group">
                         <label>每渠道测试次数 (50-500)</label>
                         <input type="number" id="compare-iterations" value="200" min="50" max="500">
@@ -1387,10 +1442,6 @@
                     <div class="form-group">
                         <label>每渠道并发数 (1-50)</label>
                         <input type="number" id="compare-concurrency" value="5" min="1" max="50">
-                    </div>
-                    <div class="form-group">
-                        <label>每渠道请求间隔 (毫秒，0=关闭)</label>
-                        <input type="number" id="compare-request-interval" value="0" min="0" max="60000" step="100">
                     </div>
                 </div>
 
@@ -1421,9 +1472,6 @@
         /* ========================================
          *  全局状态
          * ======================================== */
-        const MAX_REQUEST_INTERVAL_MS = 60000;
-        const REQUEST_WAIT_POLL_MS = 100;
-
         let baselines = JSON.parse(localStorage.getItem('modelBaselines') || '[]');
         let currentCalibChart = null;
         let currentTestChart  = null;
@@ -1483,16 +1531,6 @@
             fill.textContent  = Math.round(percent) + '%';
         }
 
-        function readRequestInterval(inputId) {
-            const input = document.getElementById(inputId);
-            const parsed = Number.parseInt(input.value, 10);
-            const interval = Number.isFinite(parsed)
-                ? Math.max(0, Math.min(MAX_REQUEST_INTERVAL_MS, parsed))
-                : 0;
-            input.value = interval;
-            return interval;
-        }
-
         /* ========================================
          *  错误分类与友好提示
          * ======================================== */
@@ -1534,7 +1572,7 @@
                 if (code === 429) return {
                     type: 'ratelimit', badge: '限频',
                     friendly: '请求过于频繁，触发速率限制 (429)',
-                    suggestion: '请稍后重试，或提高请求间隔、降低并发数。部分服务商对免费额度有严格的 RPM 限制。'
+                    suggestion: '请稍后重试，或降低测试次数。部分服务商对免费额度有严格的 RPM 限制。'
                 };
 
                 if (code === 400) {
@@ -1801,52 +1839,14 @@
         /* ========================================
          *  并发控制
          * ======================================== */
-        async function waitWhileRunning(delayMs, isRunning) {
-            const deadline = Date.now() + delayMs;
-            while (isRunning()) {
-                const remaining = deadline - Date.now();
-                if (remaining <= 0) return true;
-                await new Promise(resolve => setTimeout(
-                    resolve,
-                    Math.min(remaining, REQUEST_WAIT_POLL_MS)
-                ));
-            }
-            return false;
-        }
-
-        function createRequestPacer(requestIntervalMs, isRunning) {
-            let lastRequestStartedAt = 0;
-            let queue = Promise.resolve();
-
-            return function waitForRequestSlot() {
-                if (requestIntervalMs <= 0) return Promise.resolve(isRunning());
-
-                const turn = queue.then(async () => {
-                    const waitMs = Math.max(
-                        0,
-                        lastRequestStartedAt + requestIntervalMs - Date.now()
-                    );
-                    if (!await waitWhileRunning(waitMs, isRunning) || !isRunning()) {
-                        return false;
-                    }
-                    lastRequestStartedAt = Date.now();
-                    return true;
-                });
-                queue = turn.then(() => undefined, () => undefined);
-                return turn;
-            };
-        }
-
-        async function runWithConcurrency(totalCount, concurrency, requestIntervalMs, isRunning, taskFn, onProgress) {
+        async function runWithConcurrency(totalCount, concurrency, isRunning, taskFn, onProgress) {
             let completed = 0;
             let nextIndex = 0;
-            const waitForRequestSlot = createRequestPacer(requestIntervalMs, isRunning);
 
             async function worker() {
                 while (isRunning()) {
                     const currentIndex = nextIndex++;
                     if (currentIndex >= totalCount) break;
-                    if (!await waitForRequestSlot()) break;
                     const success = await taskFn(currentIndex);
                     if (success !== false) {
                         completed++;
@@ -1874,7 +1874,6 @@
             const iterations   = parseInt(document.getElementById('calib-iterations').value);
             const baselineName = document.getElementById('calib-baseline-name').value.trim();
             const concurrency  = Math.max(1, Math.min(50, parseInt(document.getElementById('calib-concurrency').value) || 1));
-            const requestInterval = readRequestInterval('calib-request-interval');
             const headerPreset = document.getElementById('calib-header-preset').value;
 
             if (!baseUrl || !apiKey || !model || !baselineName) {
@@ -1905,7 +1904,6 @@
             await runWithConcurrency(
                 iterations,
                 concurrency,
-                requestInterval,
                 () => calibRunning,
                 async (i) => {
                     if (!calibRunning) return false;
@@ -1927,7 +1925,7 @@
                 },
                 (completed, total) => {
                     updateProgress('calib-progress-bar', 'calib-progress-fill', (completed / total) * 100);
-                    showStatus('calib-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${total} 总数（并发: ${concurrency}，间隔: ${requestInterval}ms）`, 'info');
+                    showStatus('calib-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${total} 总数（并发: ${concurrency}）`, 'info');
                 }
             );
 
@@ -1991,7 +1989,6 @@
             const model      = document.getElementById('test-model-name').value.trim();
             const iterations = parseInt(document.getElementById('test-iterations').value);
             const concurrency = Math.max(1, Math.min(50, parseInt(document.getElementById('test-concurrency').value) || 1));
-            const requestInterval = readRequestInterval('test-request-interval');
             const headerPreset = document.getElementById('test-header-preset').value;
 
             if (!baseUrl || !apiKey || !model) {
@@ -2031,7 +2028,6 @@
             await runWithConcurrency(
                 iterations,
                 concurrency,
-                requestInterval,
                 () => testRunning,
                 async (i) => {
                     if (!testRunning) return false;
@@ -2053,7 +2049,7 @@
                 },
                 (completed, total) => {
                     updateProgress('test-progress-bar', 'test-progress-fill', (completed / total) * 100);
-                    showStatus('test-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${total} 总数（并发: ${concurrency}，间隔: ${requestInterval}ms）`, 'info');
+                    showStatus('test-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${total} 总数（并发: ${concurrency}）`, 'info');
                 }
             );
 
@@ -2548,7 +2544,6 @@
 
             const iterations  = Math.max(50, Math.min(500, parseInt(document.getElementById('compare-iterations').value) || 200));
             const concurrency = Math.max(1, Math.min(50, parseInt(document.getElementById('compare-concurrency').value) || 5));
-            const requestInterval = readRequestInterval('compare-request-interval');
             const baseline    = baselines[parseInt(baselineIdx)];
 
             const channels = compareChannels.map(ch => getChannelConfig(ch.id));
@@ -2579,11 +2574,9 @@
                 document.getElementById(`ch-status-${ch.id}`).textContent = '等待中...';
             });
 
-            showStatus('compare-status', `正在并行测试 ${channels.length} 个渠道（每渠道间隔: ${requestInterval}ms）...`, 'info');
+            showStatus('compare-status', `正在并行测试 ${channels.length} 个渠道...`, 'info');
 
-            const channelResults = await Promise.all(channels.map(ch =>
-                runChannelTest(ch, iterations, concurrency, requestInterval)
-            ));
+            const channelResults = await Promise.all(channels.map(ch => runChannelTest(ch, iterations, concurrency)));
 
             stopBtn.style.display = 'none';
             compareRunning = false;
@@ -2626,7 +2619,7 @@
             btn.textContent = '🏆 开始横评';
         }
 
-        async function runChannelTest(channel, iterations, concurrency, requestInterval) {
+        async function runChannelTest(channel, iterations, concurrency) {
             const results = [];
             let successCount = 0;
             let errorCount   = 0;
@@ -2634,7 +2627,6 @@
             await runWithConcurrency(
                 iterations,
                 concurrency,
-                requestInterval,
                 () => compareRunning,
                 async () => {
                     if (!compareRunning) return false;
@@ -2824,7 +2816,10 @@
             } catch (err) {
                 sel.innerHTML = '<option value="">加载失败，请点击「刷新」重试</option>';
                 hint.className = 'quick-source-hint err';
-                hint.textContent = `❌ 获取列表失败：${err.message}。请检查网络能否访问 GitHub，然后点「🔄 刷新」重试。`;
+                const limited = /429|Too Many Requests|限额|请求过于频繁/i.test(err.message || '');
+                hint.textContent = limited
+                    ? `❌ 获取列表失败：${err.message}。这是 GitHub 对匿名请求的限额（60 次/小时），稍等片刻再点「🔄 刷新」即可；如需彻底避免，可设置环境变量 HLWY_GITHUB_TOKEN 后重启。`
+                    : `❌ 获取列表失败：${err.message}。请检查网络能否访问 GitHub，然后点「🔄 刷新」重试。`;
             } finally {
                 refresh.disabled = false;
             }
@@ -2865,7 +2860,6 @@
             const apiKey       = document.getElementById('quick-api-key').value.trim();
             const iterations   = Math.max(50, Math.min(500, parseInt(document.getElementById('quick-iterations').value) || 100));
             const concurrency  = Math.max(1, Math.min(50, parseInt(document.getElementById('quick-concurrency').value) || 5));
-            const requestInterval = readRequestInterval('quick-request-interval');
             const headerPreset = document.getElementById('quick-header-preset').value;
 
             if (!modelId) {
@@ -2916,7 +2910,6 @@
             await runWithConcurrency(
                 iterations,
                 concurrency,
-                requestInterval,
                 () => quickRunning,
                 async () => {
                     if (!quickRunning) return false;
@@ -2938,7 +2931,7 @@
                 },
                 (completed, total) => {
                     updateProgress('quick-progress-bar', 'quick-progress-fill', (completed / total) * 100);
-                    showStatus('quick-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${total} 总数（并发: ${concurrency}，间隔: ${requestInterval}ms）`, 'info');
+                    showStatus('quick-status', `进度: ${successCount} 成功 / ${errorCount} 失败 / ${total} 总数（并发: ${concurrency}）`, 'info');
                 }
             );
 
@@ -3108,7 +3101,144 @@
 
             // 默认页面：自动加载官方基准列表
             loadQuickModels();
+
+            // 启动时静默检查更新
+            checkForUpdate();
         });
+
+        /* ========================================
+         *  自动更新
+         * ======================================== */
+        const PRERELEASE_KEY = 'hlwy_update_prerelease';
+
+        let pendingUpdate = null;
+
+        function includePrerelease() {
+            return localStorage.getItem(PRERELEASE_KEY) === '1';
+        }
+
+        async function checkForUpdate(manual = false) {
+            const pre = includePrerelease() ? '1' : '0';
+            try {
+                const resp = await fetch(`/api/update/check?prerelease=${pre}` +
+                                         (manual ? '&refresh=1' : ''));
+                const info = await resp.json();
+                if (!resp.ok) throw new Error(info.detail || info.error || '检查失败');
+
+                if (!info.has_update) {
+                    if (manual) alert(`当前已是最新版本 v${info.current}`);
+                    return;
+                }
+
+                pendingUpdate = info;
+                showUpdateDialog(info);
+            } catch (e) {
+                if (manual) alert(`检查更新失败：${e.message}`);
+                else console.warn('检查更新失败:', e.message);
+            }
+        }
+
+        function showUpdateDialog(info) {
+            closeUpdateDialog();
+
+            const mask = document.createElement('div');
+            mask.className = 'update-mask';
+            mask.id = 'update-mask';
+
+            const notes = (info.notes || '').trim();
+            mask.innerHTML = `
+                <div class="update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-title">
+                    <h3 id="update-title">发现新版本${info.prerelease ? '（测试版）' : ''}</h3>
+                    <div class="update-ver">当前 v${info.current} → 最新 ${info.latest}</div>
+                    ${notes ? `<div class="update-notes"></div>` : ''}
+                    <label class="update-pre-toggle">
+                        <input type="checkbox" id="update-include-pre">
+                        包含测试版（预发布）
+                    </label>
+                    <div class="update-status" id="update-status" hidden></div>
+                    <div class="update-actions">
+                        <button class="btn btn-secondary" id="update-later">暂不更新</button>
+                        <button class="btn" id="update-now">立即更新</button>
+                    </div>
+                </div>`;
+
+            if (notes) mask.querySelector('.update-notes').textContent = notes;
+            document.body.appendChild(mask);
+
+            const preBox = mask.querySelector('#update-include-pre');
+            preBox.checked = includePrerelease();
+            preBox.addEventListener('change', () => {
+                localStorage.setItem(PRERELEASE_KEY, preBox.checked ? '1' : '0');
+                closeUpdateDialog();
+                checkForUpdate(true);
+            });
+
+            mask.querySelector('#update-later').addEventListener('click', closeUpdateDialog);
+            mask.querySelector('#update-now').addEventListener('click', () => applyUpdate(info));
+            mask.addEventListener('click', (e) => { if (e.target === mask) closeUpdateDialog(); });
+        }
+
+        function closeUpdateDialog() {
+            const mask = document.getElementById('update-mask');
+            if (mask) mask.remove();
+        }
+
+        async function applyUpdate(info) {
+            const btnNow   = document.getElementById('update-now');
+            const btnLater = document.getElementById('update-later');
+            const status   = document.getElementById('update-status');
+
+            btnNow.disabled = btnLater.disabled = true;
+            btnNow.textContent = '更新中...';
+            status.hidden = false;
+            status.textContent = `正在下载 ${info.latest} ...`;
+
+            try {
+                const resp = await fetch('/api/update/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tag: info.latest }),
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.detail || data.error || '更新失败');
+
+                const backupNote = data.backups?.length
+                    ? `旧文件已备份为 ${data.backups.join('、')}。` : '';
+                status.textContent = `已更新到 ${data.tag}。${backupNote}正在重启服务 ...`;
+                btnNow.remove();
+
+                const ok = await waitForServer();
+                if (ok) {
+                    status.textContent = '重启完成，正在刷新页面 ...';
+                    location.reload();
+                } else {
+                    status.textContent = `已更新到 ${data.tag}，但服务未能自动恢复。` +
+                                         `请手动重新运行 start.py 后刷新页面。`;
+                    btnLater.disabled = false;
+                    btnLater.textContent = '关闭';
+                }
+            } catch (e) {
+                status.textContent = `更新失败：${e.message}`;
+                btnNow.disabled = btnLater.disabled = false;
+                btnNow.textContent = '重试';
+            }
+        }
+
+        /** 轮询 /api/version，等待重启后的服务重新可用（最多约 30 秒） */
+        async function waitForServer(timeoutMs = 30000, intervalMs = 700) {
+            const deadline = Date.now() + timeoutMs;
+            // 先给旧进程一点时间退出，避免命中尚未关闭的旧服务
+            await new Promise(r => setTimeout(r, 1500));
+
+            while (Date.now() < deadline) {
+                try {
+                    const resp = await fetch('/api/version', { cache: 'no-store' });
+                    if (resp.ok) return true;
+                } catch (_) { /* 重启窗口内连接失败属正常，继续重试 */ }
+                await new Promise(r => setTimeout(r, intervalMs));
+            }
+            return false;
+        }
     </script>
 </body>
 </html>
