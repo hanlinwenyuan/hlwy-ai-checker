@@ -119,7 +119,7 @@ _session.headers.clear()
 # ========================================
 #  一键鉴别 — 官方基准仓库
 # ========================================
-APP_VERSION   = '2.5.0'
+APP_VERSION   = '2.6-pre1'
 GITHUB_OWNER  = 'hanlinwenyuan'
 GITHUB_REPO   = 'hlwy-ai-checker'
 GITHUB_BRANCH = 'main'
@@ -387,7 +387,16 @@ _update_lock  = threading.Lock()
 
 _VERSION_RE  = re.compile(r'^v?(\d+(?:\.\d+)*)(?:[-.]?([0-9A-Za-z.\-]+))?$')
 _SAFE_TAG_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._\-]{0,60}$')
-_PRE_WORDS   = ('pre', 'rc', 'beta', 'alpha', 'dev', 'test', 'snapshot')
+
+# 测试版阶段的稳定性排序（数值越大越稳定）：rc > pre > beta
+# 按稳定性从低到高排列，扫描时取第一个命中的词，后缀混写时按更不稳定的那个算
+_PRE_STAGES  = (('beta', 10), ('pre', 20), ('rc', 30))
+# 判定「是不是测试版」用的词表比排序表宽：万一出现没列进排序表的标记，
+# 也要认成测试版，不能当正式版推给所有人
+_PRE_WORDS   = ('beta', 'pre', 'rc', 'alpha', 'dev', 'test', 'snapshot')
+_UNKNOWN_PRE = 0            # 认得出是测试版但不在排序表里：按最不稳定算
+_STABLE_RANK = 100          # 正式版：比任何测试版阶段都稳定
+_PRE_NUM_RE  = re.compile(r'\d+')
 
 
 def parse_version(text):
@@ -402,6 +411,19 @@ def parse_version(text):
     return nums, is_pre, suffix
 
 
+def _suffix_key(suffix, is_pre):
+    """
+    同一数字版本内的排序键：(阶段稳定性, 阶段内序号, 原后缀)。
+    序号按数字比较，所以 rc10 > rc2；没带序号的 rc 视为 rc0。
+    """
+    if not is_pre:
+        rank = _STABLE_RANK
+    else:
+        rank = next((v for w, v in _PRE_STAGES if w in suffix), _UNKNOWN_PRE)
+    nums = tuple(int(n) for n in _PRE_NUM_RE.findall(suffix))
+    return rank, nums, suffix
+
+
 def is_newer(remote, local):
     """remote 版本号是否比 local 更新"""
     r, l = parse_version(remote), parse_version(local)
@@ -409,10 +431,8 @@ def is_newer(remote, local):
         return False
     if r[0] != l[0]:
         return r[0] > l[0]
-    # 同一数字版本：正式版比测试版新，测试版之间按后缀字典序
-    if r[1] != l[1]:
-        return l[1] and not r[1]
-    return r[2] > l[2]
+    # 同一数字版本：正式版 > rc > pre > beta，同阶段按序号比
+    return _suffix_key(r[2], r[1]) > _suffix_key(l[2], l[1])
 
 
 def fetch_latest_release(include_prerelease=False, force=False):
@@ -831,7 +851,7 @@ def main():
     url = f'http://{HOST}:{PORT}'
     print(f"""
 ╔════════════════════════════════════════════════════════╗
-║      hlwy-ai-checker v2.5.0 - AI 模型鉴别器           ║
+║      hlwy-ai-checker v2.6-pre1 - AI 模型鉴别器        ║
 ╚════════════════════════════════════════════════════════╝
 本项目github地址：https://github.com/hanlinwenyuan/hlwy-ai-checker
 

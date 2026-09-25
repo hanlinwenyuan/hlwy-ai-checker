@@ -58,6 +58,22 @@
             color: var(--text-soft);
         }
 
+        .header-pre-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .header-pre-toggle input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+
         .content {
             padding: 26px 30px 34px;
         }
@@ -132,6 +148,59 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 16px;
+        }
+
+        /* ===== API 配置存档 ===== */
+        .profile-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .profile-bar select {
+            flex: 1;
+            width: auto;
+            min-width: 150px;
+            padding: 9px 11px;
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            font-size: 0.95em;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--surface);
+        }
+
+        .profile-bar select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* 覆盖 .form-group label / input 的块级样式，让勾选框跟按钮同行 */
+        .profile-remember {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 0;
+            font-size: 0.82em;
+            font-weight: 400;
+            color: var(--muted);
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .profile-remember input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .profile-hint {
+            margin-bottom: 16px;
+            font-size: 0.82em;
+            color: var(--muted);
+            line-height: 1.6;
         }
 
         .btn {
@@ -928,15 +997,6 @@
             margin-bottom: 14px;
         }
 
-        .update-pre-toggle {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.82em;
-            color: var(--muted);
-            margin-bottom: 14px;
-        }
-
         .update-actions {
             display: flex;
             justify-content: flex-end;
@@ -1084,9 +1144,13 @@
             <h1>🎯 hlwy-ai-checker AI 模型鉴别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
             <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">
-                v2.5.0
+                v2.6-pre1
                 <a href="javascript:void(0)" onclick="checkForUpdate(true)"
                    style="margin-left: 8px; color: inherit;">检查更新</a>
+                <label class="header-pre-toggle" title="勾选后，下次检查更新时也会提示测试版（预发布）">
+                    <input type="checkbox" id="header-include-pre">
+                    含测试版
+                </label>
             </p>
         </div>
 
@@ -1129,6 +1193,22 @@
                         <option value="openai-responses">OpenAI Responses API</option>
                         <option value="anthropic">Anthropic Claude API</option>
                     </select>
+                </div>
+
+                <div class="form-group">
+                    <label>已存 API 配置</label>
+                    <div class="profile-bar">
+                        <select id="quick-profile-select" onchange="loadApiProfile('quick')">
+                            <option value="">— 选择已存配置 —</option>
+                        </select>
+                        <button type="button" class="btn-small" onclick="saveApiProfile('quick')">💾 保存当前</button>
+                        <button type="button" class="btn-small" onclick="deleteApiProfile('quick')">🗑️ 删除</button>
+                        <label class="profile-remember">
+                            <input type="checkbox" id="quick-remember-key" checked>
+                            记住 Key
+                        </label>
+                    </div>
+                    <div class="profile-hint">配置只存在本浏览器的 localStorage 里，API Key 为明文保存。公用电脑上请取消勾选「记住 Key」，这样只存 Base URL 等信息，每次自己填 Key。</div>
                 </div>
 
                 <div class="form-row">
@@ -1228,6 +1308,21 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label>已存 API 配置</label>
+                    <div class="profile-bar">
+                        <select id="calib-profile-select" onchange="loadApiProfile('calib')">
+                            <option value="">— 选择已存配置 —</option>
+                        </select>
+                        <button type="button" class="btn-small" onclick="saveApiProfile('calib')">💾 保存当前</button>
+                        <button type="button" class="btn-small" onclick="deleteApiProfile('calib')">🗑️ 删除</button>
+                        <label class="profile-remember">
+                            <input type="checkbox" id="calib-remember-key" checked>
+                            记住 Key
+                        </label>
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label>Base URL</label>
@@ -1320,6 +1415,21 @@
                         <option value="openai-responses">OpenAI Responses API</option>
                         <option value="anthropic">Anthropic Claude API</option>
                     </select>
+                </div>
+
+                <div class="form-group">
+                    <label>已存 API 配置</label>
+                    <div class="profile-bar">
+                        <select id="test-profile-select" onchange="loadApiProfile('test')">
+                            <option value="">— 选择已存配置 —</option>
+                        </select>
+                        <button type="button" class="btn-small" onclick="saveApiProfile('test')">💾 保存当前</button>
+                        <button type="button" class="btn-small" onclick="deleteApiProfile('test')">🗑️ 删除</button>
+                        <label class="profile-remember">
+                            <input type="checkbox" id="test-remember-key" checked>
+                            记住 Key
+                        </label>
+                    </div>
                 </div>
 
                 <div class="form-row">
@@ -2440,6 +2550,7 @@
             compareChannels.push(ch);
             const container = document.getElementById('channel-list');
             container.appendChild(buildChannelCard(ch, compareChannels.length));
+            fillProfileSelect(`ch-profile-select-${id}`);
         }
 
         function removeChannel(id) {
@@ -2485,6 +2596,20 @@
                             <option value="claude-code">Claude Code</option>
                             <option value="codex">Codex CLI</option>
                         </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>已存 API 配置</label>
+                    <div class="profile-bar">
+                        <select id="ch-profile-select-${ch.id}" onchange="loadApiProfile('ch', ${ch.id})">
+                            <option value="">— 选择已存配置 —</option>
+                        </select>
+                        <button type="button" class="btn-small" onclick="saveApiProfile('ch', ${ch.id})">💾 保存当前</button>
+                        <button type="button" class="btn-small" onclick="deleteApiProfile('ch', ${ch.id})">🗑️ 删除</button>
+                        <label class="profile-remember">
+                            <input type="checkbox" id="ch-remember-key-${ch.id}" checked>
+                            记住 Key
+                        </label>
                     </div>
                 </div>
                 <div class="form-row">
@@ -3099,12 +3224,163 @@
                 quickModelTouched = quickModelInput.value.trim() !== '';
             });
 
+            // 填充各页的「已存 API 配置」下拉框
+            refreshAllProfileSelects();
+
             // 默认页面：自动加载官方基准列表
             loadQuickModels();
+
+            // 「含测试版」开关（挂在标题栏「检查更新」旁）
+            initPrereleaseToggle();
 
             // 启动时静默检查更新
             checkForUpdate();
         });
+
+        /* ========================================
+         *  API 配置存档（Base URL + Key 等）
+         * ======================================== */
+        const API_PROFILE_KEY = 'hlwy_api_profiles';
+
+        /* 各标签页的字段前缀 -> 表单元素 id 后缀映射。
+           ch 为大横评里的动态渠道卡片，需要额外拼接渠道 id。 */
+        const PROFILE_FIELDS = {
+            quick: { apiType: 'quick-api-type', baseUrl: 'quick-base-url', apiKey: 'quick-api-key',
+                     model: 'quick-model-name', headerPreset: 'quick-header-preset' },
+            calib: { apiType: 'calib-api-type', baseUrl: 'calib-base-url', apiKey: 'calib-api-key',
+                     model: 'calib-model-name', headerPreset: 'calib-header-preset' },
+            test:  { apiType: 'test-api-type',  baseUrl: 'test-base-url',  apiKey: 'test-api-key',
+                     model: 'test-model-name',  headerPreset: 'test-header-preset' },
+            ch:    { apiType: 'ch-api-type',    baseUrl: 'ch-base-url',    apiKey: 'ch-api-key',
+                     model: 'ch-model',         headerPreset: 'ch-header-preset' },
+        };
+
+        function profileEl(scope, key, chId) {
+            const base = PROFILE_FIELDS[scope][key];
+            return document.getElementById(scope === 'ch' ? `${base}-${chId}` : base);
+        }
+
+        function selectId(scope, chId) {
+            return scope === 'ch' ? `ch-profile-select-${chId}` : `${scope}-profile-select`;
+        }
+
+        function rememberEl(scope, chId) {
+            return document.getElementById(
+                scope === 'ch' ? `ch-remember-key-${chId}` : `${scope}-remember-key`);
+        }
+
+        function getApiProfiles() {
+            try {
+                const arr = JSON.parse(localStorage.getItem(API_PROFILE_KEY) || '[]');
+                return Array.isArray(arr) ? arr : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function setApiProfiles(list) {
+            localStorage.setItem(API_PROFILE_KEY, JSON.stringify(list));
+        }
+
+        /* 把存档列表填进某个下拉框，尽量保留当前选中项 */
+        function fillProfileSelect(id) {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            const keep = sel.value;
+            const profiles = getApiProfiles();
+            sel.innerHTML = '<option value="">— 选择已存配置 —</option>';
+            profiles.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.name;
+                opt.textContent = p.name;
+                sel.appendChild(opt);
+            });
+            if (profiles.some(p => p.name === keep)) sel.value = keep;
+        }
+
+        function refreshAllProfileSelects() {
+            ['quick-profile-select', 'calib-profile-select', 'test-profile-select']
+                .forEach(fillProfileSelect);
+            compareChannels.forEach(c => fillProfileSelect(`ch-profile-select-${c.id}`));
+        }
+
+        function saveApiProfile(scope, chId) {
+            const baseUrl = profileEl(scope, 'baseUrl', chId).value.trim();
+            const apiKey  = profileEl(scope, 'apiKey',  chId).value.trim();
+            if (!baseUrl && !apiKey) {
+                alert('请先填写 Base URL 或 API Key');
+                return;
+            }
+
+            const sel      = document.getElementById(selectId(scope, chId));
+            const profiles = getApiProfiles();
+            const suggest  = sel.value || baseUrl.replace(/^https?:\/\//, '').split('/')[0] || '新配置';
+            const name     = (prompt('给这份配置起个名字：', suggest) || '').trim();
+            if (!name) return;
+
+            /* 不勾「记住 Key」就只存 URL 等信息，key 不落盘 */
+            const remember = rememberEl(scope, chId).checked;
+            const entry = {
+                name,
+                apiType:      profileEl(scope, 'apiType', chId).value,
+                baseUrl,
+                apiKey:       remember ? apiKey : '',
+                rememberKey:  remember,
+                model:        profileEl(scope, 'model', chId).value.trim(),
+                headerPreset: profileEl(scope, 'headerPreset', chId).value,
+            };
+
+            const idx = profiles.findIndex(p => p.name === name);
+            if (idx >= 0) {
+                if (!confirm(`已存在配置 "${name}"，覆盖它？`)) return;
+                profiles[idx] = entry;
+            } else {
+                profiles.push(entry);
+            }
+
+            setApiProfiles(profiles);
+            refreshAllProfileSelects();
+            document.getElementById(selectId(scope, chId)).value = name;
+        }
+
+        function loadApiProfile(scope, chId) {
+            const sel = document.getElementById(selectId(scope, chId));
+            if (!sel.value) return;
+            const p = getApiProfiles().find(x => x.name === sel.value);
+            if (!p) {
+                alert('这份配置已不存在，请重新保存');
+                refreshAllProfileSelects();
+                return;
+            }
+
+            profileEl(scope, 'baseUrl', chId).value = p.baseUrl || '';
+            /* 存档里没存 key（当时没勾「记住 Key」）就保留输入框里已有的值，
+               免得把用户刚手填的 key 清空 */
+            if (p.apiKey) profileEl(scope, 'apiKey', chId).value = p.apiKey;
+            rememberEl(scope, chId).checked = p.rememberKey !== false;
+            if (p.apiType)      profileEl(scope, 'apiType', chId).value      = p.apiType;
+            if (p.headerPreset) profileEl(scope, 'headerPreset', chId).value = p.headerPreset;
+            /* 一键鉴别页的模型名默认跟随所选基准，存档留空时不要覆盖掉自动填充 */
+            if (p.model) {
+                profileEl(scope, 'model', chId).value = p.model;
+                if (scope === 'quick') quickModelTouched = true;
+            }
+
+            if (scope === 'quick') updateQuickApiFields();
+            else if (scope === 'calib') updateCalibApiFields();
+            else if (scope === 'test')  updateTestApiFields();
+        }
+
+        function deleteApiProfile(scope, chId) {
+            const sel = document.getElementById(selectId(scope, chId));
+            if (!sel.value) {
+                alert('请先在下拉框里选择要删除的配置');
+                return;
+            }
+            if (!confirm(`确定删除配置 "${sel.value}"？`)) return;
+            setApiProfiles(getApiProfiles().filter(p => p.name !== sel.value));
+            refreshAllProfileSelects();
+        }
 
         /* ========================================
          *  自动更新
@@ -3115,6 +3391,16 @@
 
         function includePrerelease() {
             return localStorage.getItem(PRERELEASE_KEY) === '1';
+        }
+
+        /* 只记住偏好，不立刻发起检查；下次点「检查更新」或下次启动时生效 */
+        function initPrereleaseToggle() {
+            const box = document.getElementById('header-include-pre');
+            if (!box) return;
+            box.checked = includePrerelease();
+            box.addEventListener('change', () => {
+                localStorage.setItem(PRERELEASE_KEY, box.checked ? '1' : '0');
+            });
         }
 
         async function checkForUpdate(manual = false) {
@@ -3151,10 +3437,6 @@
                     <h3 id="update-title">发现新版本${info.prerelease ? '（测试版）' : ''}</h3>
                     <div class="update-ver">当前 v${info.current} → 最新 ${info.latest}</div>
                     ${notes ? `<div class="update-notes"></div>` : ''}
-                    <label class="update-pre-toggle">
-                        <input type="checkbox" id="update-include-pre">
-                        包含测试版（预发布）
-                    </label>
                     <div class="update-status" id="update-status" hidden></div>
                     <div class="update-actions">
                         <button class="btn btn-secondary" id="update-later">暂不更新</button>
@@ -3164,14 +3446,6 @@
 
             if (notes) mask.querySelector('.update-notes').textContent = notes;
             document.body.appendChild(mask);
-
-            const preBox = mask.querySelector('#update-include-pre');
-            preBox.checked = includePrerelease();
-            preBox.addEventListener('change', () => {
-                localStorage.setItem(PRERELEASE_KEY, preBox.checked ? '1' : '0');
-                closeUpdateDialog();
-                checkForUpdate(true);
-            });
 
             mask.querySelector('#update-later').addEventListener('click', closeUpdateDialog);
             mask.querySelector('#update-now').addEventListener('click', () => applyUpdate(info));
