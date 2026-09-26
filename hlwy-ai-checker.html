@@ -1144,7 +1144,7 @@
             <h1>🎯 hlwy-ai-checker AI 模型鉴别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
             <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">
-                v2.6-pre1
+                v2.6-pre2
                 <a href="javascript:void(0)" onclick="checkForUpdate(true)"
                    style="margin-left: 8px; color: inherit;">检查更新</a>
                 <label class="header-pre-toggle" title="勾选后，下次检查更新时也会提示测试版（预发布）">
@@ -2274,8 +2274,8 @@
         function getPurityVerdict(score) {
             const pct = Number((score * 100).toFixed(2));   // 与页面展示的百分比保持一致，避免结论与数字互相矛盾
             if (pct >= 96) return { text: '模型一致', className: 'verdict-good' };
-            if (pct >= 90) return { text: '模型有少许降智', className: 'verdict-warn' };
-            return { text: '模型存在较大纯度问题，建议其余方法复查', className: 'verdict-bad' };
+            if (pct >= 92) return { text: '模型有少许降智', className: 'verdict-warn' };
+            return { text: '模型严重降智或者被偷换为其他模型', className: 'verdict-bad' };
         }
 
         /* ========================================
@@ -3105,7 +3105,7 @@
             const descMap = {
                 'verdict-good': '本次测试的随机数分布与官方基准高度一致，未发现被替换或明显降智的迹象。',
                 'verdict-warn': '分布与官方基准大体吻合，但存在一定偏差。可能只是采样波动，也可能存在轻微降智（如量化、参数被改动）。建议把测试次数调高后复测。',
-                'verdict-bad':  '分布与官方基准差异明显。该渠道可能并非其声称的模型，或存在明显降智。建议结合其他方法交叉验证后再下结论。'
+                'verdict-bad':  '分布与官方基准差异明显。该渠道可能并非其声称的模型，或存在严重降智。建议结合其他方法交叉验证后再下结论。'
             };
 
             const modeMatch   = r.stats.mode === r.baseline.stats.mode;
