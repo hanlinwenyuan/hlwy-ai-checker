@@ -119,7 +119,7 @@ _session.headers.clear()
 # ========================================
 #  一键鉴别 — 官方基准仓库
 # ========================================
-APP_VERSION   = '2.6-pre2'
+APP_VERSION   = '2.6-pre3'
 GITHUB_OWNER  = 'hanlinwenyuan'
 GITHUB_REPO   = 'hlwy-ai-checker'
 GITHUB_BRANCH = 'main'
@@ -147,6 +147,13 @@ _server_ref = None
 
 # 重启后的子进程不再重复打开浏览器（页面自己会刷新）
 NO_BROWSER_ENV = 'HLWY_NO_BROWSER'
+
+# 启动时就记下脚本路径：主脚本执行完后，CPython 会从 __main__ 里删除 __file__
+SCRIPT_PATH = os.path.abspath(__file__)
+SCRIPT_DIR  = os.path.dirname(SCRIPT_PATH)
+
+# 由请求线程置位，主线程在 serve_forever 返回后据此完成重启
+_restart_pending = threading.Event()
 
 # 合法基准文件名（防止路径穿越 / URL 注入）
 _SAFE_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._\-]{0,80}$')
@@ -510,7 +517,7 @@ def apply_update(tag):
             raise RuntimeError(f'{name} 内容为空，已取消更新')
         fetched[name] = text
 
-    base = os.path.dirname(os.path.abspath(__file__))
+    base = SCRIPT_DIR
     written, backups = [], []
     for name, text in fetched.items():
         path = os.path.join(base, name)
@@ -530,35 +537,39 @@ def apply_update(tag):
 
 def restart_self(delay=0.8):
     """
-    在后台线程里重启自身：先让 HTTP 响应发完，再释放端口并拉起新进程。
-    新进程沿用同一个解释器和端口，前端轮询到服务恢复后自行刷新页面。
+    请求重启：等 HTTP 响应发完后停止 serve_forever。
+    真正的重启由主线程在 main() 里完成。
+    旧做法在后台守护线程里拉起新进程，但 shutdown() 一返回主线程就退出了，
+    解释器会把守护线程直接杀掉，新进程根本来不及启动。
     """
     def _worker():
         time.sleep(delay)
         print('\n🔄 正在重启以应用新版本 ...')
-
+        _restart_pending.set()
         if _server_ref is not None:
-            try:
-                _server_ref.shutdown()       # 停止 serve_forever 循环
-                _server_ref.server_close()   # 释放监听端口，避免新进程绑定失败
-            except Exception as e:
-                print(f'   关闭旧服务失败: {e}')
-
-        env = dict(os.environ, **{NO_BROWSER_ENV: '1'})
-        script = os.path.abspath(__file__)
-        try:
-            subprocess.Popen([sys.executable, script],
-                             cwd=os.path.dirname(script),
-                             env=env,
-                             close_fds=True)
-        except Exception as e:
-            print(f'   ❌ 自动重启失败: {e}')
-            print('   请手动重新运行 start.py')
-            return
-
-        os._exit(0)
+            _server_ref.shutdown()       # 让主线程的 serve_forever 返回
 
     threading.Thread(target=_worker, daemon=True).start()
+
+
+def _relaunch():
+    """
+    在主线程里拉起新版本。
+    POSIX 用 exec 原地替换进程，终端和进程号都保持不变；
+    Windows 的 exec 实际是起新进程再退出，所以直接用 Popen。
+    """
+    os.environ[NO_BROWSER_ENV] = '1'
+    os.chdir(SCRIPT_DIR)
+    args = [sys.executable, SCRIPT_PATH]
+    sys.stdout.flush()
+    sys.stderr.flush()
+    try:
+        if os.name == 'posix':
+            os.execv(sys.executable, args)   # 成功则不会返回
+        subprocess.Popen(args, cwd=SCRIPT_DIR, close_fds=True)
+    except Exception as e:
+        print(f'   ❌ 自动重启失败: {e}')
+        print('   请手动重新运行 start.py')
 
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
@@ -851,7 +862,7 @@ def main():
     url = f'http://{HOST}:{PORT}'
     print(f"""
 ╔════════════════════════════════════════════════════════╗
-║      hlwy-ai-checker v2.6-pre2 - AI 模型鉴别器        ║
+║      hlwy-ai-checker v2.6-pre3 - AI 模型鉴别器        ║
 ╚════════════════════════════════════════════════════════╝
 本项目github地址：https://github.com/hanlinwenyuan/hlwy-ai-checker
 
@@ -869,7 +880,11 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n\n已停止")
-        server.shutdown()
+    finally:
+        server.server_close()            # 释放监听端口，新进程才能绑定
+
+    if _restart_pending.is_set():
+        _relaunch()
 
 
 if __name__ == '__main__':
