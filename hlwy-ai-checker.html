@@ -591,6 +591,7 @@
         .verdict-good { background: #f0f9f2; color: #1a7f37; }
         .verdict-warn { background: #fdf8e3; color: #a16207; }
         .verdict-bad  { background: #fdf2f2; color: #b42318; }
+        .verdict-self { background: #eef3fd; color: #1d4ed8; }
 
         /* ===== 大横评 样式 ===== */
         .channel-list {
@@ -1144,7 +1145,7 @@
             <h1>🎯 hlwy-ai-checker AI 模型鉴别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
             <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">
-                v2.6-pre3
+                v2.6-pre4
                 <a href="javascript:void(0)" onclick="checkForUpdate(true)"
                    style="margin-left: 8px; color: inherit;">检查更新</a>
                 <label class="header-pre-toggle" title="勾选后，下次检查更新时也会提示测试版（预发布）">
@@ -1171,7 +1172,8 @@
                         无需自己标定基准 —— 官方基准会自动从 GitHub 下载。<br>
                         <b>①</b> 选择你要鉴别的模型 &nbsp;→&nbsp;
                         <b>②</b> 填入渠道的 Base URL 和 API Key &nbsp;→&nbsp;
-                        <b>③</b> 点击「开始一键鉴别」
+                        <b>③</b> 点击「开始一键鉴别」<br>
+                        报告会同时列出与所有官方基准的匹配度；若其他模型的匹配度比所选模型高出至少 2 个百分点，会提示可能被替换。
                     </div>
                 </div>
 
@@ -2270,12 +2272,33 @@
             }).sort((a, b) => b.score - a.score);
         }
 
+        /* 与页面展示的百分比保持一致，避免结论与数字互相矛盾 */
+        function scoreToPct(score) {
+            return Number((score * 100).toFixed(2));
+        }
+
         /* 综合匹配度 → 模型纯度结论 */
         function getPurityVerdict(score) {
-            const pct = Number((score * 100).toFixed(2));   // 与页面展示的百分比保持一致，避免结论与数字互相矛盾
+            const pct = scoreToPct(score);
             if (pct >= 96) return { text: '模型一致', className: 'verdict-good' };
             if (pct >= 92) return { text: '模型有少许降智', className: 'verdict-warn' };
             return { text: '模型严重降智或者被偷换为其他模型', className: 'verdict-bad' };
+        }
+
+        /* 其他官方基准须比所选模型高出至少这么多个百分点，才判为可能被替换 */
+        const REPLACE_MARGIN_PCT = 2;
+
+        /* 两个匹配度按展示值相减，单位为百分点；按 0.01 取整，避免浮点误差影响边界判断 */
+        function scoreGapPct(a, b) {
+            return Math.round((scoreToPct(a) - scoreToPct(b)) * 100) / 100;
+        }
+
+        /* 一键鉴别结论：其他官方基准比所选模型高出 REPLACE_MARGIN_PCT 个百分点及以上，判为可能被替换 */
+        function getQuickVerdict(claimedScore, bestOtherScore) {
+            if (bestOtherScore != null && scoreGapPct(bestOtherScore, claimedScore) >= REPLACE_MARGIN_PCT) {
+                return { text: '模型可能被替换', className: 'verdict-bad', replaced: true };
+            }
+            return getPurityVerdict(claimedScore);
         }
 
         /* ========================================
@@ -2978,6 +3001,26 @@
             return b;
         }
 
+        /* 下载一个官方基准，返回 { baseline, source } */
+        async function fetchOfficialBaseline(id) {
+            const resp = await fetch(`/api/baseline?name=${encodeURIComponent(id)}`);
+            const payload = await resp.json();
+            if (!resp.ok) throw new Error(payload.detail || payload.error || `HTTP ${resp.status}`);
+            return { baseline: normalizeDownloadedBaseline(payload.data), source: payload.source || 'GitHub' };
+        }
+
+        /* 下载其余官方基准用于横向比较；个别下载失败只跳过，不影响鉴别 */
+        async function fetchOtherBaselines(excludeId) {
+            const ids = quickModels.map(m => m.id).filter(id => id !== excludeId);
+            const settled = await Promise.allSettled(ids.map(id => fetchOfficialBaseline(id)));
+            const loaded = [], failed = [];
+            settled.forEach((s, i) => {
+                if (s.status === 'fulfilled') loaded.push({ id: ids[i], baseline: s.value.baseline });
+                else failed.push(ids[i]);
+            });
+            return { loaded, failed };
+        }
+
         async function startQuickCheck() {
             const modelId      = document.getElementById('quick-model-select').value;
             const apiType      = document.getElementById('quick-api-type').value;
@@ -3010,11 +3053,7 @@
             let baseline, baselineSource;
             showStatus('quick-status', `正在下载「${modelId}」的官方基准…`, 'info');
             try {
-                const resp = await fetch(`/api/baseline?name=${encodeURIComponent(modelId)}`);
-                const payload = await resp.json();
-                if (!resp.ok) throw new Error(payload.detail || payload.error || `HTTP ${resp.status}`);
-                baseline = normalizeDownloadedBaseline(payload.data);
-                baselineSource = payload.source || 'GitHub';
+                ({ baseline, source: baselineSource } = await fetchOfficialBaseline(modelId));
             } catch (err) {
                 showStatus('quick-status', `❌ 下载官方基准失败：${err.message}`, 'error');
                 btn.disabled = false;
@@ -3023,6 +3062,9 @@
             }
 
             const model = document.getElementById('quick-model-name').value.trim() || baseline.model || modelId;
+
+            // 其余官方基准在测试期间后台下载，出报告时用于横向比对
+            const othersPromise = fetchOtherBaselines(modelId);
 
             // ---- 步骤 2：测试待鉴别渠道 ----
             stopBtn.style.display = 'inline-block';
@@ -3075,14 +3117,26 @@
                 return;
             }
 
-            // ---- 步骤 3：只针对本模型出报告 ----
+            // ---- 步骤 3：出报告，并与所有官方基准横向比对 ----
             const distribution = calculateDistribution(results);
             const stats        = calculateStats(results);
             const similarity   = calculateSimilarity(distribution, baseline.distribution, stats, baseline.stats);
 
+            showStatus('quick-status', '正在与其他官方基准比对…', 'info');
+            const others = await othersPromise;
+            const crossMatches = [{ id: modelId, baseline, similarity, isClaimed: true }]
+                .concat(others.loaded.map(o => ({
+                    id: o.id,
+                    baseline: o.baseline,
+                    similarity: calculateSimilarity(distribution, o.baseline.distribution, stats, o.baseline.stats),
+                    isClaimed: false
+                })))
+                .sort((a, b) => b.similarity.overallScore - a.similarity.overallScore);
+
             displayQuickResult({
                 modelId, model, baseline, baselineSource, similarity, stats,
-                distribution, iterations, successCount, errorCount, aborted
+                distribution, iterations, successCount, errorCount, aborted,
+                crossMatches, crossFailed: others.failed
             });
 
             if (aborted) {
@@ -3094,19 +3148,28 @@
             }
         }
 
-        /* 单模型鉴别报告 —— 不做多模型排名 */
+        /* 一键鉴别报告：以所选模型为主，附带与所有官方基准的匹配度 */
         function displayQuickResult(r) {
             const container = document.getElementById('quick-report');
             document.getElementById('quick-results').style.display = 'block';
 
-            const score   = r.similarity.overallScore;
-            const verdict = getPurityVerdict(score);
+            const score     = r.similarity.overallScore;
+            const bestOther = r.crossMatches.find(m => !m.isClaimed) || null;
+            const verdict   = getQuickVerdict(score, bestOther ? bestOther.similarity.overallScore : null);
 
             const descMap = {
                 'verdict-good': '本次测试的随机数分布与官方基准高度一致，未发现被替换或明显降智的迹象。',
                 'verdict-warn': '分布与官方基准大体吻合，但存在一定偏差。可能只是采样波动，也可能存在轻微降智（如量化、参数被改动）。建议把测试次数调高后复测。',
                 'verdict-bad':  '分布与官方基准差异明显。该渠道可能并非其声称的模型，或存在严重降智。建议结合其他方法交叉验证后再下结论。'
             };
+
+            let verdictDesc = descMap[verdict.className];
+            if (verdict.replaced) {
+                const gap = scoreGapPct(bestOther.similarity.overallScore, score);
+                verdictDesc = `本次分布与官方基准「${escapeHtml(bestOther.id)}」更像（${scoreToPct(bestOther.similarity.overallScore).toFixed(2)}%），`
+                    + `比所选模型「${escapeHtml(r.modelId)}」高出 ${gap.toFixed(2)} 个百分点。该渠道可能把请求转给了其他模型。`
+                    + '建议结合其他方法交叉验证后再下结论。';
+            }
 
             const modeMatch   = r.stats.mode === r.baseline.stats.mode;
             const sampleCount = r.successCount;
@@ -3126,7 +3189,7 @@
                     <div class="qv-score">${(score * 100).toFixed(2)}%</div>
                     <div class="qv-label">与官方基准「${escapeHtml(r.modelId)}」的综合匹配度</div>
                     <div class="qv-text">${escapeHtml(verdict.text)}</div>
-                    <div class="qv-desc">${descMap[verdict.className]}</div>
+                    <div class="qv-desc">${verdictDesc}</div>
                 </div>
 
                 <div class="quick-meta">
@@ -3160,6 +3223,8 @@
                     </div>
                 </div>`;
 
+            html += renderCrossMatches(r);
+
             if (sampleCount < 100) {
                 html += `<div class="quick-meta" style="border-left-color:#d99a06;margin-top:14px;">
                     ⚠️ 本次仅有 <b>${sampleCount}</b> 个有效样本，统计波动较大，结论仅供参考。建议在「高级选项」中把测试次数调到 200 以上再复测。
@@ -3173,6 +3238,57 @@
             container.innerHTML = html;
 
             displayQuickChart(r.distribution, r.baseline.distribution, r.model, r.modelId);
+        }
+
+        /* 与所有官方基准的匹配度排名 */
+        function renderCrossMatches(r) {
+            let html = `<div class="compare-section-title">与所有官方基准的匹配度</div>`;
+
+            if (r.crossMatches.length < 2) {
+                html += `<div class="quick-meta" style="border-left-color:#bbb;">
+                    未能获取其他官方基准，本次只和所选模型做了比较。${r.crossFailed.length ? `下载失败：${r.crossFailed.map(escapeHtml).join('、')}。` : ''}
+                </div>`;
+                return html;
+            }
+
+            html += `<div class="table-scroll"><table class="ranking-table"><thead><tr>
+                <th>排名</th><th>官方基准</th><th>综合匹配度</th><th>众数</th><th>余弦相似度</th><th>JS散度</th>
+            </tr></thead><tbody>`;
+
+            r.crossMatches.forEach((m, i) => {
+                const rankClass = i < 3 ? `rank-${i + 1}` : 'rank-other';
+                const s = m.similarity.overallScore;
+                const modeMatch = r.stats.mode === m.baseline.stats.mode ? '✅' : '❌';
+                html += `<tr>
+                    <td><span class="rank-badge ${rankClass}">${i + 1}</span></td>
+                    <td><strong>${escapeHtml(m.id)}</strong>${m.isClaimed ? ' <span class="verdict-badge verdict-self">所选模型</span>' : ''}</td>
+                    <td>${scoreToPct(s).toFixed(2)}%<span class="score-bar" style="width:${Math.max(5, s * 120)}px;"></span></td>
+                    <td>${modeMatch} ${m.baseline.stats.mode}</td>
+                    <td>${(m.similarity.cosineSimilarity * 100).toFixed(2)}%</td>
+                    <td>${m.similarity.jsDivergence.toFixed(4)}</td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+
+            // 最像的其他基准与所选模型差距不足判定门槛时，提示两者难以区分
+            const claimed   = r.crossMatches.find(m => m.isClaimed);
+            const bestOther = r.crossMatches.find(m => !m.isClaimed);
+            const gap = scoreGapPct(bestOther.similarity.overallScore, claimed.similarity.overallScore);
+            if (gap > 0 && gap < REPLACE_MARGIN_PCT) {
+                html += `<div class="quick-meta" style="border-left-color:#d99a06;margin-top:14px;">
+                    ⚠️ 「${escapeHtml(bestOther.id)}」的匹配度比所选模型高 ${gap.toFixed(2)} 个百分点，未达到判定替换所需的 ${REPLACE_MARGIN_PCT} 个百分点，暂不判为替换。仅凭本次结果难以区分这两个模型，建议加大测试次数复测。
+                </div>`;
+            } else if (gap <= 0 && gap > -REPLACE_MARGIN_PCT) {
+                html += `<div class="quick-meta" style="border-left-color:#d99a06;margin-top:14px;">
+                    ⚠️ 「${escapeHtml(bestOther.id)}」的匹配度与所选模型相差不到 ${REPLACE_MARGIN_PCT} 个百分点，仅凭本次结果难以区分这两个模型。建议加大测试次数复测。
+                </div>`;
+            }
+            if (r.crossFailed.length) {
+                html += `<div class="quick-meta" style="border-left-color:#bbb;margin-top:14px;">
+                    以下基准下载失败，未参与比较：${r.crossFailed.map(escapeHtml).join('、')}
+                </div>`;
+            }
+            return html;
         }
 
         function displayQuickChart(testDist, baselineDist, testName, baselineName) {
