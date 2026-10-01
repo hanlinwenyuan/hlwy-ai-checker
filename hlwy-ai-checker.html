@@ -1194,7 +1194,7 @@
             <h1>🎯 hlwy-ai-checker AI 模型鉴别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
             <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">
-                v2.6-pre5
+                v2.6-pre6
                 <a href="javascript:void(0)" onclick="checkForUpdate(true)"
                    style="margin-left: 8px; color: inherit;">检查更新</a>
                 <label class="header-pre-toggle" title="勾选后，下次检查更新时也会提示测试版（预发布）">
@@ -1231,7 +1231,7 @@
                         <b>①</b> 选择你要鉴别的模型 &nbsp;→&nbsp;
                         <b>②</b> 填入渠道的 Base URL 和 API Key &nbsp;→&nbsp;
                         <b>③</b> 点击「开始一键鉴别」<br>
-                        报告会同时列出与所有官方基准的匹配度；若其他模型的匹配度比所选模型高出至少 2 个百分点，会提示可能被替换。
+                        报告会同时列出与所有官方基准的匹配度；若其他模型的匹配度比所选模型高出至少 0.5 个百分点，会提示可能被替换。
                     </div>
                 </div>
 
@@ -2378,7 +2378,7 @@
         }
 
         /* 其他官方基准须比所选模型高出至少这么多个百分点，才判为可能被替换 */
-        const REPLACE_MARGIN_PCT = 2;
+        const REPLACE_MARGIN_PCT = 0.5;
 
         /* 两个匹配度按展示值相减，单位为百分点；按 0.01 取整，避免浮点误差影响边界判断 */
         function scoreGapPct(a, b) {
