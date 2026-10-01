@@ -11,9 +11,10 @@
 python start.py
 ```
 ## 自动模式
-### 直接使用一键测试功能
+### 直接使用一键测试功能，可以按照需求打开反针对模式
 
-<img width="896" height="688" alt="image" src="https://github.com/user-attachments/assets/1dc60c3d-279b-4c99-bf9f-3e0da3b91a46" />
+<img width="626" height="616" alt="image" src="https://github.com/user-attachments/assets/315279db-1c77-4b5e-aa79-42d5c6379df0" />
+
 
 ## 手动模式
 ### 1. 输入官方 API key 进行模型标定（Base URL 需包含 /v1）
