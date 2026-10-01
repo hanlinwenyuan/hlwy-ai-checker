@@ -1059,6 +1059,43 @@
             margin-bottom: 10px;
         }
 
+        /* ===== 更新成功提示条 ===== */
+        .update-success-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+            border-radius: 8px;
+            padding: 14px 20px;
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9em;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .update-success-toast::before {
+            content: '✓';
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 50%;
+            text-align: center;
+            line-height: 22px;
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
         /* ===== 响应式：中等窗口 ===== */
         @media (max-width: 860px) {
             body { padding: 16px 14px 40px; }
@@ -1075,6 +1112,15 @@
         @media (max-width: 600px) {
             body { padding: 10px 10px 32px; }
             .container { border-radius: 6px; }
+
+            .update-success-toast {
+                top: 12px;
+                left: 12px;
+                right: 12px;
+                transform: none;
+                font-size: 0.85em;
+                padding: 12px 16px;
+            }
 
             .header { padding: 16px 16px 13px; }
             .header h1 { font-size: 1.15em; }
@@ -1194,7 +1240,7 @@
             <h1>🎯 hlwy-ai-checker AI 模型鉴别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
             <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">
-                v2.6-pre6
+                v2.6-rc1
                 <a href="javascript:void(0)" onclick="checkForUpdate(true)"
                    style="margin-left: 8px; color: inherit;">检查更新</a>
                 <label class="header-pre-toggle" title="勾选后，下次检查更新时也会提示测试版（预发布）">
@@ -3426,6 +3472,13 @@
             console.log('hlwy-ai-checker AI 模型鉴别器已加载');
             console.log(`当前已保存 ${baselines.length} 个基准模型`);
 
+            // 检查是否刚完成更新
+            const justUpdatedTag = sessionStorage.getItem('hlwy_just_updated');
+            if (justUpdatedTag) {
+                sessionStorage.removeItem('hlwy_just_updated');
+                showUpdateSuccessToast(justUpdatedTag);
+            }
+
             // 记录用户是否手动改过「渠道上的模型名称」
             const quickModelInput = document.getElementById('quick-model-name');
             quickModelInput.addEventListener('input', () => {
@@ -3695,6 +3748,7 @@
                 const ok = await waitForServer();
                 if (ok) {
                     status.textContent = '重启完成，正在刷新页面 ...';
+                    sessionStorage.setItem('hlwy_just_updated', data.tag);
                     location.reload();
                 } else {
                     status.textContent = `已更新到 ${data.tag}，但服务未能自动恢复。` +
@@ -3723,6 +3777,19 @@
                 await new Promise(r => setTimeout(r, intervalMs));
             }
             return false;
+        }
+
+        function showUpdateSuccessToast(tag) {
+            const toast = document.createElement('div');
+            toast.className = 'update-success-toast';
+            toast.textContent = `已成功更新到 ${tag}`;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
         }
     </script>
 </body>

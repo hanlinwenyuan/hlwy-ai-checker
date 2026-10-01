@@ -119,7 +119,7 @@ _session.headers.clear()
 # ========================================
 #  一键鉴别 — 官方基准仓库
 # ========================================
-APP_VERSION   = '2.6-pre6'
+APP_VERSION   = '2.6-rc1'
 GITHUB_OWNER  = 'hanlinwenyuan'
 GITHUB_REPO   = 'hlwy-ai-checker'
 GITHUB_BRANCH = 'main'
@@ -862,7 +862,7 @@ def main():
     url = f'http://{HOST}:{PORT}'
     print(f"""
 ╔════════════════════════════════════════════════════════╗
-║      hlwy-ai-checker v2.6-pre6 - AI 模型鉴别器        ║
+║      hlwy-ai-checker v2.6-rc1 - AI 模型鉴别器         ║
 ╚════════════════════════════════════════════════════════╝
 本项目github地址：https://github.com/hanlinwenyuan/hlwy-ai-checker
 
