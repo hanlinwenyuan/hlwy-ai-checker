@@ -78,6 +78,55 @@
             padding: 26px 30px 34px;
         }
 
+        .anti-target-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px 10px;
+            margin: -12px 0 22px;
+            padding: 9px 12px;
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.88em;
+        }
+
+        .anti-target-bar label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .anti-target-bar input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .anti-target-bar .anti-target-tag {
+            padding: 1px 6px;
+            background: #fdf8e3;
+            color: #a16207;
+            border: 1px solid #f0e0a8;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .anti-target-bar .anti-target-hint {
+            color: var(--muted);
+            font-size: 0.92em;
+        }
+
+        .anti-target-bar.on {
+            background: var(--accent-soft);
+            border-color: var(--accent);
+        }
+
         .tabs {
             display: flex;
             gap: 4px;
@@ -1145,7 +1194,7 @@
             <h1>🎯 hlwy-ai-checker AI 模型鉴别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
             <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">
-                v2.6-pre4
+                v2.6-pre5
                 <a href="javascript:void(0)" onclick="checkForUpdate(true)"
                    style="margin-left: 8px; color: inherit;">检查更新</a>
                 <label class="header-pre-toggle" title="勾选后，下次检查更新时也会提示测试版（预发布）">
@@ -1162,6 +1211,15 @@
                 <button class="tab" data-tab="test" onclick="switchTab('test')">🔍 测试识别</button>
                 <button class="tab" data-tab="baselines" onclick="switchTab('baselines')">💾 基准管理</button>
                 <button class="tab" data-tab="compare" onclick="switchTab('compare')">🏆 大横评</button>
+            </div>
+
+            <div class="anti-target-bar" id="anti-target-bar">
+                <label>
+                    <input type="checkbox" id="anti-target-mode">
+                    反针对模式（如果你认为中转站在尝试针对检测器，请打开）
+                    <span class="anti-target-tag">测试功能</span>
+                </label>
+                <span class="anti-target-hint">通过提示词加入干扰来加强反针对效果</span>
             </div>
 
             <!-- 一键鉴别 Tab -->
@@ -1836,6 +1894,40 @@
         /* ========================================
          *  API 调用
          * ======================================== */
+        const BASE_PROMPT = '请从1到355之间随机选择一个数字，只输出这个数字，不要有任何其他内容。';
+
+        const ANTI_TARGET_KEY = 'hlwy_anti_target_mode';
+
+        function antiTargetEnabled() {
+            try { return localStorage.getItem(ANTI_TARGET_KEY) === '1'; } catch (e) { return false; }
+        }
+
+        function initAntiTargetToggle() {
+            const box = document.getElementById('anti-target-mode');
+            const bar = document.getElementById('anti-target-bar');
+            if (!box) return;
+            box.checked = antiTargetEnabled();
+            bar.classList.toggle('on', box.checked);
+            box.addEventListener('change', () => {
+                try { localStorage.setItem(ANTI_TARGET_KEY, box.checked ? '1' : '0'); } catch (e) {}
+                bar.classList.toggle('on', box.checked);
+            });
+        }
+
+        // 反针对模式：每次请求在随机位置插入 1 个空格，避免中转站按固定提示词识别。
+        // 不插在首尾，也不插在两个数字之间（避免把 355 拆成 3 55 改变题意）。
+        // 实测插 1 个空格对官方模型的分布没有可检出的影响，插 2~3 个会让匹配度明显下降。
+        function buildPrompt() {
+            const box = document.getElementById('anti-target-mode');
+            if (!(box ? box.checked : antiTargetEnabled())) return BASE_PROMPT;
+            const gaps = [];
+            for (let i = 1; i < BASE_PROMPT.length; i++) {
+                if (!(/\d/.test(BASE_PROMPT[i - 1]) && /\d/.test(BASE_PROMPT[i]))) gaps.push(i);
+            }
+            const pos = gaps[Math.floor(Math.random() * gaps.length)];
+            return BASE_PROMPT.slice(0, pos) + ' ' + BASE_PROMPT.slice(pos);
+        }
+
         async function callOpenAI(baseUrl, apiKey, model, headerPreset) {
             const headers = {
                 'Content-Type': 'application/json',
@@ -1848,7 +1940,7 @@
                 headers,
                 body: JSON.stringify({
                     model: model,
-                    messages: [{ role: 'user', content: '请从1到355之间随机选择一个数字，只输出这个数字，不要有任何其他内容。' }],
+                    messages: [{ role: 'user', content: buildPrompt() }],
                     temperature: 1.0,
                     max_tokens: 256
                 })
@@ -1879,7 +1971,7 @@
                 body: JSON.stringify({
                     model: model,
                     max_tokens: 256,
-                    messages: [{ role: 'user', content: '请从1到355之间随机选择一个数字，只输出这个数字，不要有任何其他内容。' }],
+                    messages: [{ role: 'user', content: buildPrompt() }],
                     temperature: 1.0
                 })
             });
@@ -1907,7 +1999,7 @@
                 headers,
                 body: JSON.stringify({
                     model: model,
-                    input: [{ role: 'user', content: '请从1到355之间随机选择一个数字，只输出这个数字，不要有任何其他内容。' }],
+                    input: [{ role: 'user', content: buildPrompt() }],
                     temperature: 1.0,
                     max_output_tokens: 256
                 })
@@ -3348,6 +3440,9 @@
 
             // 「含测试版」开关（挂在标题栏「检查更新」旁）
             initPrereleaseToggle();
+
+            // 「反针对模式」开关（标签栏下方，全局生效）
+            initAntiTargetToggle();
 
             // 启动时静默检查更新
             checkForUpdate();
