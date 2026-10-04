@@ -1240,7 +1240,7 @@
             <h1>🎯 hlwy-ai-checker AI 模型鉴别器</h1>
             <p>通过随机数生成模式识别和区分不同的AI模型</p>
             <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">
-                v2.6-rc1
+                v2.6.0
                 <a href="javascript:void(0)" onclick="checkForUpdate(true)"
                    style="margin-left: 8px; color: inherit;">检查更新</a>
                 <label class="header-pre-toggle" title="勾选后，下次检查更新时也会提示测试版（预发布）">
@@ -1333,7 +1333,7 @@
                     <input type="text" id="quick-model-name" placeholder="留空则使用所选模型的名称">
                 </div>
 
-                <span class="advanced-toggle" onclick="toggleQuickAdvanced()" id="quick-advanced-toggle">⚙️ 高级选项（一般不用改）▼</span>
+                <span class="advanced-toggle" onclick="toggleQuickAdvanced()" id="quick-advanced-toggle">⚙️ 高级选项▼</span>
                 <div class="advanced-panel" id="quick-advanced-panel">
                     <div class="form-row">
                         <div class="form-group">
@@ -3058,7 +3058,7 @@
             const panel  = document.getElementById('quick-advanced-panel');
             const toggle = document.getElementById('quick-advanced-toggle');
             const open   = panel.classList.toggle('show');
-            toggle.textContent = open ? '⚙️ 高级选项（一般不用改）▲' : '⚙️ 高级选项（一般不用改）▼';
+            toggle.textContent = open ? '⚙️ 高级选项▲' : '⚙️ 高级选项▼';
         }
 
         /* 从后端拉取 GitHub baselines 目录中的模型列表 */
