@@ -1314,7 +1314,7 @@
                             记住 Key
                         </label>
                     </div>
-                    <div class="profile-hint">配置只存在本浏览器的 localStorage 里，API Key 为明文保存。公用电脑上请取消勾选「记住 Key」，这样只存 Base URL 等信息，每次自己填 Key。</div>
+                    <div class="profile-hint">配置只存在本浏览器的 localStorage 里；勾选「记住 Key」时会使用浏览器 Web Crypto 加密保存。公用电脑上请取消勾选，这样只存 Base URL 等信息，每次自己填 Key。</div>
                 </div>
 
                 <div class="form-row">
@@ -1688,7 +1688,7 @@
         /* ========================================
          *  全局状态
          * ======================================== */
-        let baselines = JSON.parse(localStorage.getItem('modelBaselines') || '[]');
+        let baselines;
         let currentCalibChart = null;
         let currentTestChart  = null;
 
@@ -1701,6 +1701,190 @@
         let quickRunning      = false;
         let currentQuickChart = null;
         let quickModelTouched = false;   // 用户是否手改过「模型名称」
+
+        /* ========================================
+         *  安全工具：输入过滤 + DOM 安全渲染 + Key 加密
+         * ======================================== */
+
+        const DIST_LENGTH   = 355;
+        const MAX_TEXT_LEN  = 200;
+        const SECRET_PREFIX = 'enc:v1:';
+        const KEY_MATERIAL_KEY = 'hlwy_key_material';
+
+        /* 过滤不可信文本：按 Unicode 类别剔除控制字符与不可见格式字符
+           （U+0000-U+001F、U+007F-U+009F、U+200B-U+200F、U+202A-U+202E、U+2060-U+206F、U+FEFF），
+           再按上限截断。渲染侧统一用 textContent / escapeHtml，这里是第一道防线。 */
+        function sanitizeText(value, maxLen = MAX_TEXT_LEN) {
+            const str = (value == null ? '' : String(value));
+            const cleaned = str.replace(
+                /[\p{Cc}\p{Cf}]/gu,
+                ch => (/[\t\n\r]/.test(ch) ? ' ' : '')
+            ).trim();
+            return maxLen > 0 ? cleaned.slice(0, maxLen) : cleaned;
+        }
+
+        function escapeHtml(str) {
+            return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[c]);
+        }
+
+        /* 数值字段：只接受有限数字，否则回退 */
+        function finiteOr(value, fallback = 0) {
+            const n = typeof value === 'number' ? value : Number(value);
+            return Number.isFinite(n) ? n : fallback;
+        }
+
+        /* 校验并规范化一条基准记录；返回全新对象（只保留白名单字段），非法则返回 null */
+        function normalizeBaseline(raw, { requireMode = false } = {}) {
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+            if (!Array.isArray(raw.distribution) || raw.distribution.length !== DIST_LENGTH) return null;
+            if (!raw.stats || typeof raw.stats !== 'object') return null;
+
+            const distribution = [];
+            for (let i = 0; i < DIST_LENGTH; i++) {
+                const v = raw.distribution[i];
+                if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return null;
+                distribution.push(v);
+            }
+
+            const s = raw.stats;
+            const mean   = finiteOr(s.mean,   null);
+            const stdDev = finiteOr(s.stdDev, null);
+            const median = finiteOr(s.median, null);
+            if (mean === null || stdDev === null || median === null) return null;
+
+            const hasMode = s.mode !== undefined && s.mode !== null && Number.isFinite(Number(s.mode));
+            if (requireMode && !hasMode) return null;
+
+            const stats = { mean, stdDev, median };
+            if (Number.isFinite(Number(s.min)))       stats.min       = Number(s.min);
+            if (Number.isFinite(Number(s.max)))       stats.max       = Number(s.max);
+            if (Number.isFinite(Number(s.unique)))    stats.unique    = Number(s.unique);
+            if (hasMode) {
+                stats.mode      = Number(s.mode);
+                stats.modeCount = Number.isFinite(Number(s.modeCount)) ? Number(s.modeCount) : 0;
+            }
+
+            const name = sanitizeText(raw.name);
+            const model = sanitizeText(raw.model);
+            if (!name) return null;
+
+            const iterations = Number.isFinite(Number(raw.iterations))
+                ? Math.max(0, Math.trunc(Number(raw.iterations))) : 0;
+            const rawData = Array.isArray(raw.rawData)
+                ? raw.rawData.map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= DIST_LENGTH)
+                : undefined;
+
+            const ts = Date.parse(raw.timestamp);
+            const timestamp = Number.isFinite(ts) ? new Date(ts).toISOString() : new Date().toISOString();
+
+            const normalized = {
+                name,
+                model,
+                apiType: sanitizeText(raw.apiType, 40) || 'openai',
+                timestamp,
+                iterations,
+                distribution,
+                stats,
+            };
+            if (rawData) normalized.rawData = rawData;
+            return normalized;
+        }
+
+        /* 规范化一组基准；非法记录直接丢弃 */
+        function normalizeBaselineList(list) {
+            if (!Array.isArray(list)) return [];
+            return list.map(b => normalizeBaseline(b)).filter(Boolean);
+        }
+
+        /* 启动时读取本地基准：解析失败或含非法记录都不应中断启动 */
+        function loadStoredBaselines() {
+            let raw = [];
+            try {
+                const parsed = JSON.parse(localStorage.getItem('modelBaselines') || '[]');
+                if (Array.isArray(parsed)) raw = parsed;
+            } catch (e) {
+                console.warn('本地基准数据已损坏，已重置:', e.message);
+            }
+            const clean = normalizeBaselineList(raw);
+            if (clean.length !== raw.length) {
+                try { localStorage.setItem('modelBaselines', JSON.stringify(clean)); } catch (e) {}
+            }
+            return clean;
+        }
+
+        function saveBaselines() {
+            try { localStorage.setItem('modelBaselines', JSON.stringify(baselines)); } catch (e) {}
+        }
+
+        /* ---------- API Key 本地加密（保持原有存档流程不变） ---------- */
+
+        function bytesToBase64(bytes) {
+            let bin = '';
+            bytes.forEach(b => { bin += String.fromCharCode(b); });
+            return btoa(bin);
+        }
+
+        function base64ToBytes(b64) {
+            const bin = atob(b64);
+            const out = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+            return out;
+        }
+
+        /* 每个浏览器一份随机密钥，首次使用时生成 */
+        async function getLocalCryptoKey() {
+            let raw = null;
+            try { raw = localStorage.getItem(KEY_MATERIAL_KEY); } catch (e) {}
+            if (!raw) {
+                raw = bytesToBase64(crypto.getRandomValues(new Uint8Array(32)));
+                try { localStorage.setItem(KEY_MATERIAL_KEY, raw); } catch (e) {}
+            }
+            return crypto.subtle.importKey('raw', base64ToBytes(raw), 'AES-GCM', false, ['encrypt', 'decrypt']);
+        }
+
+        /* 注意：密钥材料同样存在本浏览器里，这只挡住「直接翻 localStorage」，
+           并不能挡住同源 XSS —— 真正防住 XSS 的是下面渲染路径的过滤。 */
+        async function encryptKey(plain) {
+            if (!plain) return '';
+            if (typeof crypto === 'undefined' || !crypto.subtle) return '';
+            try {
+                const key = await getLocalCryptoKey();
+                const iv  = crypto.getRandomValues(new Uint8Array(12));
+                const buf = await crypto.subtle.encrypt(
+                    { name: 'AES-GCM', iv }, key, new TextEncoder().encode(plain));
+                const body = new Uint8Array(iv.length + buf.byteLength);
+                body.set(iv, 0);
+                body.set(new Uint8Array(buf), iv.length);
+                return SECRET_PREFIX + bytesToBase64(body);
+            } catch (e) {
+                console.warn('Key 加密失败，本次不保存 Key:', e.message);
+                return '';
+            }
+        }
+
+        /* 兼容旧存档：没有前缀的老数据（明文）原样返回 */
+        async function decryptKey(stored) {
+            if (!stored || typeof stored !== 'string') return '';
+            if (!stored.startsWith(SECRET_PREFIX)) return stored;
+            if (typeof crypto === 'undefined' || !crypto.subtle) return '';
+            try {
+                const key  = await getLocalCryptoKey();
+                const body = base64ToBytes(stored.slice(SECRET_PREFIX.length));
+                const iv   = body.slice(0, 12);
+                const data = body.slice(12);
+                const buf  = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+                return new TextDecoder().decode(buf);
+            } catch (e) {
+                console.warn('Key 解密失败，可能密钥材料已被清除:', e.message);
+                return '';
+            }
+        }
+
+        /* Baseline loading must happen after the validation constants and helpers
+           above have been initialized. */
+        baselines = loadStoredBaselines();
 
         /* ========================================
          *  UI 辅助
@@ -1888,9 +2072,9 @@
             const ul = document.getElementById(`${prefix}-error-list`);
             const li = document.createElement('li');
             li.innerHTML = `
-                <span class="err-time">${timeStr}</span>
-                <span class="err-badge ${classified.type}">${classified.badge}</span>
-                <span class="err-msg">${classified.friendly}</span>`;
+                <span class="err-time">${escapeHtml(timeStr)}</span>
+                <span class="err-badge ${escapeHtml(classified.type)}">${escapeHtml(classified.badge)}</span>
+                <span class="err-msg">${escapeHtml(classified.friendly)}</span>`;
             ul.prepend(li);   // 最新的在上面
 
             // 超过 50 条移除旧的
@@ -1913,7 +2097,7 @@
             const sugg = document.getElementById(`${prefix}-early-warning-suggestion`);
 
             body.textContent = `前面的请求已连续失败 ${errorState[prefix].consecutive} 次，最后的错误类型为「${classified.friendly}」。建议检查配置后重试，或点击中止按钮停止当前任务。`;
-            sugg.innerHTML = `<strong>💡 建议：</strong>${classified.suggestion}`;
+            sugg.innerHTML = `<strong>💡 建议：</strong>${escapeHtml(classified.suggestion)}`;
             warning.classList.add('show');
         }
 
@@ -2208,13 +2392,15 @@
             const stats = calculateStats(results);
 
             const baseline = {
-                name: baselineName, model, apiType,
+                name: sanitizeText(baselineName),
+                model: sanitizeText(model),
+                apiType: sanitizeText(apiType, 40) || 'openai',
                 timestamp: new Date().toISOString(),
                 iterations: results.length, distribution, stats, rawData: results
             };
 
             baselines.push(baseline);
-            localStorage.setItem('modelBaselines', JSON.stringify(baselines));
+            saveBaselines();
             displayCalibrationChart(distribution, baselineName);
 
             if (errorCount > 0) {
@@ -2372,19 +2558,30 @@
         }
 
         function calculateSimilarity(dist1, dist2, stats1, stats2) {
+            if (!Array.isArray(dist1) || !Array.isArray(dist2) ||
+                dist1.length !== DIST_LENGTH || dist2.length !== DIST_LENGTH) {
+                return { cosineSimilarity: 0, jsDivergence: Infinity, modeScore: 0, overallScore: 0 };
+            }
+            const sum1 = dist1.reduce((sum, value) => sum + value, 0);
+            const sum2 = dist2.reduce((sum, value) => sum + value, 0);
+            if (sum1 <= 0 || sum2 <= 0) {
+                return { cosineSimilarity: 0, jsDivergence: Infinity, modeScore: 0, overallScore: 0 };
+            }
+
             let dotProduct = 0, norm1 = 0, norm2 = 0;
-            for (let i = 0; i < dist1.length; i++) {
-                dotProduct += dist1[i] * dist2[i];
-                norm1 += dist1[i] * dist1[i];
-                norm2 += dist2[i] * dist2[i];
+            let jsDiv = 0;
+            const epsilon = 1e-12;
+            for (let i = 0; i < DIST_LENGTH; i++) {
+                const p = dist1[i] / sum1;
+                const q = dist2[i] / sum2;
+                dotProduct += p * q;
+                norm1 += p * p;
+                norm2 += q * q;
+                const m = (p + q) / 2;
+                if (p > 0) jsDiv += 0.5 * p * Math.log((p + epsilon) / (m + epsilon));
+                if (q > 0) jsDiv += 0.5 * q * Math.log((q + epsilon) / (m + epsilon));
             }
             const cosineSim = dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
-            let jsDiv = 0;
-            const epsilon = 1e-10;
-            for (let i = 0; i < dist1.length; i++) {
-                const p = dist1[i] + epsilon, q = dist2[i] + epsilon, m = (p + q) / 2;
-                jsDiv += (p * Math.log(p / m) + q * Math.log(q / m)) / 2;
-            }
 
             const distribScore = cosineSim * Math.exp(-jsDiv);
             let modeScore = 0;
@@ -2505,7 +2702,7 @@
                 item.className = 'match-item';
                 const verdict = getPurityVerdict(match.score);
                 item.innerHTML = `
-                    <div class="model-name">#${index + 1} ${match.baseline.name}</div>
+                    <div class="model-name">#${index + 1} ${escapeHtml(match.baseline.name)}</div>
                     <div class="similarity">
                         <strong>综合匹配度:</strong> ${(match.score * 100).toFixed(2)}%
                         <span class="verdict-badge ${verdict.className}">${verdict.text}</span><br>
@@ -2570,9 +2767,9 @@
                 item.className = 'baseline-item';
                 item.innerHTML = `
                     <div>
-                        <div class="name">${baseline.name}</div>
+                        <div class="name">${escapeHtml(baseline.name)}</div>
                         <div class="stats">
-                            模型: ${baseline.model} | 样本数: ${baseline.iterations} | 创建: ${new Date(baseline.timestamp).toLocaleString('zh-CN')}<br>
+                            模型: ${escapeHtml(baseline.model)} | 样本数: ${baseline.iterations} | 创建: ${escapeHtml(new Date(baseline.timestamp).toLocaleString('zh-CN'))}<br>
                             均值: ${baseline.stats.mean.toFixed(2)} | 标准差: ${baseline.stats.stdDev.toFixed(2)} | 唯一值: ${baseline.stats.unique}
                         </div>
                     </div>
@@ -2599,7 +2796,7 @@
         function deleteBaseline(index) {
             if (confirm(`确定删除 "${baselines[index].name}"？`)) {
                 baselines.splice(index, 1);
-                localStorage.setItem('modelBaselines', JSON.stringify(baselines));
+                saveBaselines();
                 renderBaselines();
             }
         }
@@ -2608,8 +2805,9 @@
             const oldName = baselines[index].name;
             const newName = prompt('请输入新的基准名称：', oldName);
             if (newName !== null && newName.trim() !== '') {
-                baselines[index].name = newName.trim();
-                localStorage.setItem('modelBaselines', JSON.stringify(baselines));
+                baselines[index].name = sanitizeText(newName, MAX_TEXT_LEN);
+                if (!baselines[index].name) return;
+                saveBaselines();
                 renderBaselines();
             }
         }
@@ -2642,20 +2840,13 @@
                 try {
                     const imported = JSON.parse(e.target.result);
                     if (!Array.isArray(imported)) { alert('无效的基准数据格式'); return; }
-                    const valid = imported.filter(b =>
-                        b && typeof b.name === 'string' &&
-                        typeof b.model === 'string' &&
-                        Array.isArray(b.distribution) && b.distribution.length === 355 &&
-                        b.stats && typeof b.stats.mean === 'number' &&
-                        typeof b.stats.stdDev === 'number' &&
-                        typeof b.stats.median === 'number'
-                    );
+                    const valid = imported.map(b => normalizeBaseline(b, { requireMode: false })).filter(Boolean);
                     if (valid.length === 0) {
                         alert('导入的数据中没有有效的基准记录，请检查文件格式');
                         return;
                     }
                     baselines = [...baselines, ...valid];
-                    localStorage.setItem('modelBaselines', JSON.stringify(baselines));
+                    saveBaselines();
                     renderBaselines();
                     if (valid.length < imported.length) {
                         alert(`成功导入 ${valid.length} 个基准（${imported.length - valid.length} 个因格式不完整被跳过）`);
@@ -2739,7 +2930,7 @@
                 </div>
                 <div class="form-group">
                     <label>渠道名称</label>
-                    <input type="text" id="ch-name-${ch.id}" value="${ch.name}" placeholder="例如：中转A">
+                    <input type="text" id="ch-name-${ch.id}" placeholder="例如：中转A">
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -2793,6 +2984,7 @@
                     </div>
                     <div class="channel-status-text" id="ch-status-${ch.id}"></div>
                 </div>`;
+            div.querySelector(`#ch-name-${ch.id}`).value = sanitizeText(ch.name);
             return div;
         }
 
@@ -2955,7 +3147,7 @@
             const resultsCard = document.getElementById('compare-results');
             resultsCard.style.display = 'block';
 
-            let html = `<p style="color:var(--text-soft);margin-bottom:12px;">基准：<strong>${baseline.name}</strong>（${baseline.model}）</p>`;
+            let html = `<p style="color:var(--text-soft);margin-bottom:12px;">基准：<strong>${escapeHtml(baseline.name)}</strong>（${escapeHtml(baseline.model)}）</p>`;
             html += `<div class="table-scroll"><table class="ranking-table"><thead><tr>
                 <th>排名</th><th>渠道名称</th><th>综合匹配度</th><th>结论</th>
                 <th>众数匹配</th><th>余弦相似度</th><th>JS散度</th><th>数据量</th>
@@ -2969,7 +3161,7 @@
                 const verdict   = getPurityVerdict(r.score);
                 html += `<tr>
                     <td><span class="rank-badge ${rankClass}">${i + 1}</span></td>
-                    <td><strong>${r.channel.name}</strong></td>
+                    <td><strong>${escapeHtml(r.channel.name)}</strong></td>
                     <td>${scorePct}%<span class="score-bar" style="width:${barWidth}px;"></span></td>
                     <td><span class="verdict-badge ${verdict.className}">${verdict.text}</span></td>
                     <td>${modeMatch} ${r.stats.mode}（基准${baseline.stats.mode}）</td>
@@ -3126,17 +3318,11 @@
                 if (b.length === 0) throw new Error('基准文件内容为空');
                 b = b[0];
             }
-            if (!b || typeof b !== 'object') throw new Error('基准文件格式无法识别');
-            if (!Array.isArray(b.distribution) || b.distribution.length !== 355) {
-                throw new Error('基准缺少完整的分布数据（应为 355 个数值）');
+            const normalized = normalizeBaseline(b, { requireMode: true });
+            if (!normalized) {
+                throw new Error('基准文件格式无效或缺少完整统计数据');
             }
-            if (!b.stats || typeof b.stats.mean !== 'number') {
-                throw new Error('基准缺少统计数据');
-            }
-            if (b.stats.mode == null) {
-                throw new Error('该官方基准为旧版格式，缺少众数数据，无法用于鉴别');
-            }
-            return b;
+            return normalized;
         }
 
         /* 下载一个官方基准，返回 { baseline, source } */
@@ -3568,7 +3754,7 @@
             compareChannels.forEach(c => fillProfileSelect(`ch-profile-select-${c.id}`));
         }
 
-        function saveApiProfile(scope, chId) {
+        async function saveApiProfile(scope, chId) {
             const baseUrl = profileEl(scope, 'baseUrl', chId).value.trim();
             const apiKey  = profileEl(scope, 'apiKey',  chId).value.trim();
             if (!baseUrl && !apiKey) {
@@ -3578,18 +3764,22 @@
 
             const sel      = document.getElementById(selectId(scope, chId));
             const profiles = getApiProfiles();
-            const suggest  = sel.value || baseUrl.replace(/^https?:\/\//, '').split('/')[0] || '新配置';
-            const name     = (prompt('给这份配置起个名字：', suggest) || '').trim();
+            const suggest  = sanitizeText(sel.value || baseUrl.replace(/^https?:\/\//, '').split('/')[0] || '新配置');
+            const name     = sanitizeText(prompt('给这份配置起个名字：', suggest));
             if (!name) return;
 
             /* 不勾「记住 Key」就只存 URL 等信息，key 不落盘 */
             const remember = rememberEl(scope, chId).checked;
+            const storedKey = remember ? await encryptKey(apiKey) : '';
+            if (remember && apiKey && !storedKey) {
+                alert('当前浏览器无法安全加密 API Key，已取消保存 Key；配置仍会保存。');
+            }
             const entry = {
                 name,
                 apiType:      profileEl(scope, 'apiType', chId).value,
                 baseUrl,
-                apiKey:       remember ? apiKey : '',
-                rememberKey:  remember,
+                apiKey:       storedKey,
+                rememberKey:  remember && !!storedKey,
                 model:        profileEl(scope, 'model', chId).value.trim(),
                 headerPreset: profileEl(scope, 'headerPreset', chId).value,
             };
@@ -3607,7 +3797,7 @@
             document.getElementById(selectId(scope, chId)).value = name;
         }
 
-        function loadApiProfile(scope, chId) {
+        async function loadApiProfile(scope, chId) {
             const sel = document.getElementById(selectId(scope, chId));
             if (!sel.value) return;
             const p = getApiProfiles().find(x => x.name === sel.value);
@@ -3620,8 +3810,11 @@
             profileEl(scope, 'baseUrl', chId).value = p.baseUrl || '';
             /* 存档里没存 key（当时没勾「记住 Key」）就保留输入框里已有的值，
                免得把用户刚手填的 key 清空 */
-            if (p.apiKey) profileEl(scope, 'apiKey', chId).value = p.apiKey;
-            rememberEl(scope, chId).checked = p.rememberKey !== false;
+            if (p.apiKey) {
+                const decryptedKey = await decryptKey(p.apiKey);
+                if (decryptedKey) profileEl(scope, 'apiKey', chId).value = decryptedKey;
+            }
+            rememberEl(scope, chId).checked = p.rememberKey === true;
             if (p.apiType)      profileEl(scope, 'apiType', chId).value      = p.apiType;
             if (p.headerPreset) profileEl(scope, 'headerPreset', chId).value = p.headerPreset;
             /* 一键鉴别页的模型名默认跟随所选基准，存档留空时不要覆盖掉自动填充 */
@@ -3699,7 +3892,7 @@
             mask.innerHTML = `
                 <div class="update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-title">
                     <h3 id="update-title">发现新版本${info.prerelease ? '（测试版）' : ''}</h3>
-                    <div class="update-ver">当前 v${info.current} → 最新 ${info.latest}</div>
+                    <div class="update-ver"></div>
                     ${notes ? `<div class="update-notes"></div>` : ''}
                     <div class="update-status" id="update-status" hidden></div>
                     <div class="update-actions">
@@ -3708,6 +3901,7 @@
                     </div>
                 </div>`;
 
+            mask.querySelector('.update-ver').textContent = `当前 v${info.current} → 最新 ${info.latest}`;
             if (notes) mask.querySelector('.update-notes').textContent = notes;
             document.body.appendChild(mask);
 
