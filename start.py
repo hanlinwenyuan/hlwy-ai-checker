@@ -789,7 +789,16 @@ class ProxyHandler(BaseHTTPRequestHandler):
         新版模型（gpt-5 / o 系列等）只接受 max_completion_tokens，而旧模型/部分中转
         只接受 max_tokens，前端写死 max_tokens 会导致 400。这里根据报错自动降级切换。
         """
-        resp = _session.post(target_url, data=body, headers=headers, timeout=30)
+        try:
+            body_obj = json.loads(body)
+        except (ValueError, TypeError):
+            body_obj = None
+        # 思考请求可能远超原来的 30 秒；重试时仍保留用户指定的思考参数。
+        has_reasoning = isinstance(body_obj, dict) and any(
+            key in body_obj for key in ('reasoning_effort', 'reasoning', 'thinking', 'output_config')
+        )
+        timeout = (10, 180) if has_reasoning else 30
+        resp = _session.post(target_url, data=body, headers=headers, timeout=timeout)
         if resp.status_code != 400 or '/chat/completions' not in self.path:
             return resp
 
@@ -804,10 +813,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
         if 'unsupported_parameter' not in err_text and 'unknown parameter' not in err_text:
             return resp
 
-        try:
-            body_obj = json.loads(body)
-        except Exception:
-            return resp
         if not isinstance(body_obj, dict):
             return resp
 
@@ -821,7 +826,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         if not changed:
             return resp
-        return _session.post(target_url, data=json.dumps(body_obj), headers=headers, timeout=30)
+        return _session.post(target_url, data=json.dumps(body_obj), headers=headers, timeout=timeout)
 
     def send_json_response(self, status_code, data):
         """发送 JSON 响应"""
