@@ -27,6 +27,21 @@ python start.py
 ### 3. 查看测试结果
 测试完成后，比较官方渠道与第三方渠道的指纹相似度及相关统计结果。
 
+## 思考强度设置
+
+一键鉴别、标定基准、测试识别和大横评的每个渠道均可设置「思考强度 / 模式」以及「总输出 token 上限（含思考）」。默认选择「不指定」，沿用服务端默认行为；不指定不代表关闭思考。
+
+- OpenAI 兼容格式发送 `reasoning_effort`，Responses API 发送 `reasoning.effort`。可选 `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`，实际支持范围取决于模型和渠道。指定强度时省略 `temperature`，Chat Completions 使用 `max_completion_tokens`。
+- Claude 新模型选择「自适应思考」，通过 `thinking.type: adaptive` 和 `output_config.effort` 设置强度；支持旧版扩展思考的模型可选择「手动思考预算」，预算至少为 1024 tokens，且必须小于总输出上限。是否支持关闭思考也取决于模型。
+- 输出上限留空时：默认或关闭思考为 256 tokens，指定思考强度或自适应思考为 16384 tokens，手动思考为预算加 256 tokens。若收到输出截断错误，请提高上限。较高强度会增加耗时和 token 用量，思考请求的代理读取超时为 180 秒。
+- API 不支持所选参数时会显示错误，程序不会自动删除思考参数或降低强度。服务端接受参数也不能证明渠道确实按该强度执行。
+
+新标定的基准与保存的 API 配置会记录思考参数，基准导入、导出后也会保留。请用相同的 API 协议类型、思考配置和 token 上限进行标定与测试。旧基准没有记录这些参数，会显示「未记录（旧版基准）」；配置不同或未知时，相似度仅供参考，不给出模型被替换或降智的结论。可以重新标定后，在「测试识别」或「大横评」中比较。
+
+参数说明见 [OpenAI 推理模型文档](https://developers.openai.com/api/docs/guides/reasoning)、[Claude effort 文档](https://platform.claude.com/docs/en/build-with-claude/effort)及[旧版扩展思考文档](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)。
+
+开发验证：`node --test tests/reasoning.test.js` 和 `python3 -m unittest discover -s tests -p 'test_*.py'`，测试使用模拟 API，不消耗模型额度。
+
 # 特色&优点
 
 ## 识别精确，区分度高

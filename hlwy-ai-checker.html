@@ -1277,7 +1277,7 @@
                         <b>①</b> 选择你要鉴别的模型 &nbsp;→&nbsp;
                         <b>②</b> 填入渠道的 Base URL 和 API Key &nbsp;→&nbsp;
                         <b>③</b> 点击「开始一键鉴别」<br>
-                        报告会同时列出与所有官方基准的匹配度；若其他模型的匹配度比所选模型高出至少 0.5 个百分点，会提示可能被替换。
+                        报告会同时列出与所有官方基准的匹配度；在思考配置一致时，若其他模型的匹配度比所选模型高出至少 0.5 个百分点，会提示可能被替换。
                     </div>
                 </div>
 
@@ -1354,6 +1354,8 @@
                         </select>
                     </div>
                 </div>
+
+                <div id="quick-reasoning-controls"></div>
 
                 <div class="btn-group" style="margin-top: 20px;">
                     <button class="btn btn-quick" onclick="startQuickCheck()" id="quick-btn">⚡ 开始一键鉴别</button>
@@ -1466,6 +1468,8 @@
                     </div>
                 </div>
 
+                <div id="calib-reasoning-controls"></div>
+
                 <div class="form-group">
                     <label>基准名称（用于保存和识别）</label>
                     <input type="text" id="calib-baseline-name" placeholder="例如: GPT-4-Turbo-2024">
@@ -1574,6 +1578,8 @@
                         <input type="number" id="test-concurrency" value="1" min="1" max="50">
                     </div>
                 </div>
+
+                <div id="test-reasoning-controls"></div>
 
                 <div class="btn-group">
                     <button class="btn" onclick="startTest()" id="test-btn">🔍 开始测试</button>
@@ -1711,6 +1717,120 @@
         const SECRET_PREFIX = 'enc:v1:';
         const KEY_MATERIAL_KEY = 'hlwy_key_material';
 
+        /* ========================================
+         *  思考配置：表单、参数校验与基准比较
+         * ======================================== */
+        const OPENAI_REASONING_MODES = ['default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+        const ANTHROPIC_THINKING_MODES = ['default', 'disabled', 'adaptive', 'enabled'];
+        const ANTHROPIC_EFFORTS = ['default', 'low', 'medium', 'high', 'xhigh', 'max'];
+
+        function reasoningApiType(prefix) {
+            const id = prefix.startsWith('ch-') ? `ch-api-type-${prefix.slice(3)}` : `${prefix}-api-type`;
+            return document.getElementById(id).value;
+        }
+
+        function reasoningControlsHtml(prefix) {
+            return `<div class="form-row">
+                <div class="form-group">
+                    <label for="${prefix}-reasoning-mode">思考强度 / 模式</label>
+                    <select id="${prefix}-reasoning-mode" onchange="updateReasoningFields('${prefix}')"></select>
+                </div>
+                <div class="form-group" id="${prefix}-reasoning-effort-group" style="display:none;">
+                    <label for="${prefix}-reasoning-effort">Claude 思考强度</label>
+                    <select id="${prefix}-reasoning-effort">
+                        ${ANTHROPIC_EFFORTS.map(v => `<option value="${v}">${v === 'default' ? '默认（不指定）' : v}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group" id="${prefix}-thinking-budget-group" style="display:none;">
+                    <label for="${prefix}-thinking-budget">思考预算 tokens（旧版 Claude）</label>
+                    <input type="number" id="${prefix}-thinking-budget" value="4096" min="1024" max="130816" step="1">
+                </div>
+                <div class="form-group">
+                    <label for="${prefix}-max-output-tokens">总输出 token 上限（含思考）</label>
+                    <input type="number" id="${prefix}-max-output-tokens" min="256" max="131072" step="1">
+                </div>
+            </div>
+            <p class="profile-hint" id="${prefix}-reasoning-hint" style="margin-bottom:20px;"></p>`;
+        }
+
+        function updateReasoningFields(prefix) {
+            const apiType = reasoningApiType(prefix);
+            const anthropic = apiType === 'anthropic';
+            const select = document.getElementById(`${prefix}-reasoning-mode`);
+            if (!select) return;
+            const modes = anthropic ? ANTHROPIC_THINKING_MODES : OPENAI_REASONING_MODES;
+            const labels = { default: '默认（不指定）', none: 'none（关闭推理）', disabled: '关闭思考（需模型支持）',
+                adaptive: '自适应思考（新版 Claude）', enabled: '手动思考预算（旧版 Claude）' };
+            const previous = select.value;
+            select.innerHTML = modes.map(v => `<option value="${v}">${labels[v] || v}</option>`).join('');
+            select.value = modes.includes(previous) ? previous : 'default';
+            const mode = select.value;
+            document.getElementById(`${prefix}-reasoning-effort-group`).style.display = anthropic && mode === 'adaptive' ? '' : 'none';
+            document.getElementById(`${prefix}-thinking-budget-group`).style.display = anthropic && mode === 'enabled' ? '' : 'none';
+            document.getElementById(`${prefix}-max-output-tokens`).placeholder =
+                mode === 'enabled' ? '留空：思考预算 + 256' : mode === 'default' || mode === 'none' || mode === 'disabled' ? '留空：256' : '留空：16384';
+            document.getElementById(`${prefix}-reasoning-hint`).textContent =
+                '默认不发送思考参数。各模型支持的档位不同；不支持时会显示 API 错误，不会自动降低强度。开启思考会增加耗时和 token 用量；请用相同配置重新标定基准。' +
+                (anthropic ? ' 新版 Claude 请使用自适应模式；手动预算至少 1024，且须小于总输出上限。' : ' 指定思考强度时不发送 temperature。');
+        }
+
+        function normalizeReasoningConfig(raw, apiType) {
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+            const anthropic = apiType === 'anthropic';
+            const modes = anthropic ? ANTHROPIC_THINKING_MODES : OPENAI_REASONING_MODES;
+            if (!modes.includes(raw.mode)) return null;
+            const mode = raw.mode;
+            const effort = anthropic && mode === 'adaptive' ? (raw.effort ?? 'default') : 'default';
+            if (!ANTHROPIC_EFFORTS.includes(effort)) return null;
+            const budgetTokens = anthropic && mode === 'enabled' ? (raw.budgetTokens ?? 4096) : 0;
+            if (!Number.isSafeInteger(budgetTokens) || (mode === 'enabled' && budgetTokens < 1024)) return null;
+            const defaultMax = mode === 'enabled' ? budgetTokens + 256
+                : ['default', 'none', 'disabled'].includes(mode) ? 256 : 16384;
+            const maxTokens = raw.maxTokens ?? defaultMax;
+            if (!Number.isSafeInteger(maxTokens) || maxTokens < 256 || maxTokens > 131072 || budgetTokens >= maxTokens) return null;
+            return { mode, effort, budgetTokens, maxTokens };
+        }
+
+        // 每次运行开始时读取一次，避免测试过程中修改表单导致样本混用不同设置。
+        function readReasoningConfig(prefix) {
+            const maxValue = document.getElementById(`${prefix}-max-output-tokens`).value.trim();
+            const config = normalizeReasoningConfig({
+                mode: document.getElementById(`${prefix}-reasoning-mode`).value,
+                effort: document.getElementById(`${prefix}-reasoning-effort`).value,
+                budgetTokens: Number(document.getElementById(`${prefix}-thinking-budget`).value),
+                maxTokens: maxValue ? Number(maxValue) : undefined,
+            }, reasoningApiType(prefix));
+            if (!config) throw new Error('思考配置无效：输出上限须为 256–131072 的整数；手动思考预算至少 1024，且须小于输出上限。');
+            return config;
+        }
+
+        function getRunReasoning(prefix, statusId) {
+            try { return readReasoningConfig(prefix); }
+            catch (error) { showStatus(statusId, error.message, 'error'); return null; }
+        }
+
+        function describeReasoning(config) {
+            if (!config) return '未记录（旧版基准）';
+            let text = config.mode === 'default' ? '默认（未指定）' : config.mode;
+            if (config.mode === 'adaptive') text += ` / effort: ${config.effort}`;
+            if (config.mode === 'enabled') text += ` / 思考预算: ${config.budgetTokens}`;
+            return `${text} / 总输出上限: ${config.maxTokens}`;
+        }
+
+        function reasoningMatches(baseline, apiType, config) {
+            const saved = normalizeReasoningConfig(baseline.reasoning, baseline.apiType);
+            return !!saved && (baseline.apiType === 'anthropic') === (apiType === 'anthropic')
+                && JSON.stringify(saved) === JSON.stringify(config);
+        }
+
+        function configuredVerdict(score, baseline, apiType, config) {
+            if (reasoningMatches(baseline, apiType, config)) return getPurityVerdict(score);
+            return { text: baseline.reasoning ? '思考配置不同，仅供参考' : '基准思考配置未知，仅供参考', className: 'verdict-warn' };
+        }
+
+        /* ========================================
+         *  输入过滤与基准数据校验
+         * ======================================== */
         /* 过滤不可信文本：按 Unicode 类别剔除控制字符与不可见格式字符
            （U+0000-U+001F、U+007F-U+009F、U+200B-U+200F、U+202A-U+202E、U+2060-U+206F、U+FEFF），
            再按上限截断。渲染侧统一用 textContent / escapeHtml，这里是第一道防线。 */
@@ -1788,6 +1908,10 @@
                 distribution,
                 stats,
             };
+            if (raw.reasoning !== undefined) {
+                normalized.reasoning = normalizeReasoningConfig(raw.reasoning, normalized.apiType);
+                if (!normalized.reasoning) return null;
+            }
             if (rawData) normalized.rawData = rawData;
             return normalized;
         }
@@ -1905,12 +2029,14 @@
             const type = document.getElementById('calib-api-type').value;
             document.getElementById('calib-base-url').placeholder =
                 type === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1';
+            updateReasoningFields('calib');
         }
 
         function updateTestApiFields() {
             const type = document.getElementById('test-api-type').value;
             document.getElementById('test-base-url').placeholder =
                 type === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1';
+            updateReasoningFields('test');
         }
 
         function showStatus(elementId, message, type) {
@@ -1976,6 +2102,11 @@
                 };
 
                 if (code === 400) {
+                    if (/reasoning|thinking|effort|budget_tokens/.test(msg)) return {
+                        type: 'other', badge: '思考参数',
+                        friendly: '模型或渠道不支持当前思考配置 (400)',
+                        suggestion: '请查看 API 原始错误并选择该模型支持的强度或模式。新版 Claude 请使用自适应思考；程序不会自动删除思考参数或降低强度。'
+                    };
                     // Check for model-specific errors
                     if (msg.includes('model')) return {
                         type: 'other', badge: '参数',
@@ -2158,7 +2289,34 @@
             return BASE_PROMPT.slice(0, pos) + ' ' + BASE_PROMPT.slice(pos);
         }
 
-        async function callOpenAI(baseUrl, apiKey, model, headerPreset) {
+        function buildRequestBody(apiType, model, reasoning) {
+            const config = normalizeReasoningConfig(reasoning || { mode: 'default' }, apiType);
+            if (!config) throw new Error('思考配置无效');
+            const body = { model };
+            const message = { role: 'user', content: buildPrompt() };
+            if (apiType === 'openai-responses') {
+                body.input = [message];
+                body.max_output_tokens = config.maxTokens;
+                if (config.mode !== 'default') body.reasoning = { effort: config.mode };
+            } else {
+                body.messages = [message];
+                if (apiType === 'anthropic') {
+                    body.max_tokens = config.maxTokens;
+                    if (config.mode !== 'default') body.thinking = { type: config.mode };
+                    if (config.mode === 'adaptive' && config.effort !== 'default') body.output_config = { effort: config.effort };
+                    if (config.mode === 'enabled') body.thinking.budget_tokens = config.budgetTokens;
+                } else if (config.mode !== 'default') {
+                    body.max_completion_tokens = config.maxTokens;
+                    body.reasoning_effort = config.mode;
+                } else {
+                    body.max_tokens = config.maxTokens;
+                }
+            }
+            if (config.mode === 'default') body.temperature = 1.0;
+            return body;
+        }
+
+        async function callOpenAI(baseUrl, apiKey, model, headerPreset, reasoning) {
             const headers = {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
@@ -2168,18 +2326,16 @@
             const response = await fetch('/chat/completions', {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({
-                    model: model,
-                    messages: [{ role: 'user', content: buildPrompt() }],
-                    temperature: 1.0,
-                    max_tokens: 256
-                })
+                body: JSON.stringify(buildRequestBody('openai', model, reasoning))
             });
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`API错误: ${response.status} - ${errorText}`);
             }
             const data = await response.json();
+            if (data.choices?.[0]?.finish_reason === 'length') {
+                throw new Error('输出 token 上限不足（含思考），请提高总输出 token 上限后重试');
+            }
             const content = data.choices?.[0]?.message?.content;
             if (typeof content !== 'string' || !content.trim()) {
                 throw new Error('没有返回可读字段');
@@ -2187,7 +2343,7 @@
             return content.trim();
         }
 
-        async function callAnthropic(baseUrl, apiKey, model, headerPreset) {
+        async function callAnthropic(baseUrl, apiKey, model, headerPreset, reasoning) {
             const headers = {
                 'Content-Type': 'application/json',
                 'x-api-key': apiKey,
@@ -2198,26 +2354,25 @@
             const response = await fetch('/messages', {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({
-                    model: model,
-                    max_tokens: 256,
-                    messages: [{ role: 'user', content: buildPrompt() }],
-                    temperature: 1.0
-                })
+                body: JSON.stringify(buildRequestBody('anthropic', model, reasoning))
             });
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`API错误: ${response.status} - ${errorText}`);
             }
             const data = await response.json();
-            const text = data.content?.[0]?.text;
+            if (data.stop_reason === 'max_tokens') {
+                throw new Error('输出 token 上限不足（含思考），请提高总输出 token 上限后重试');
+            }
+            const text = Array.isArray(data.content)
+                ? data.content.filter(block => block.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n') : '';
             if (typeof text !== 'string' || !text.trim()) {
                 throw new Error('没有返回可读字段');
             }
             return text.trim();
         }
 
-        async function callOpenAIResponses(baseUrl, apiKey, model, headerPreset) {
+        async function callOpenAIResponses(baseUrl, apiKey, model, headerPreset, reasoning) {
             const headers = {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
@@ -2227,19 +2382,17 @@
             const response = await fetch('/responses', {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({
-                    model: model,
-                    input: [{ role: 'user', content: buildPrompt() }],
-                    temperature: 1.0,
-                    max_output_tokens: 256
-                })
+                body: JSON.stringify(buildRequestBody('openai-responses', model, reasoning))
             });
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`API错误: ${response.status} - ${errorText}`);
             }
             const data = await response.json();
-            const outputMsg = data.output.find(o => o.type === 'message');
+            if (data.status === 'incomplete' && data.incomplete_details?.reason === 'max_output_tokens') {
+                throw new Error('输出 token 上限不足（含思考），请提高总输出 token 上限后重试');
+            }
+            const outputMsg = data.output?.find(o => o.type === 'message');
             if (outputMsg && outputMsg.content && outputMsg.content.length > 0) {
                 const textBlock = outputMsg.content.find(c => c.type === 'output_text');
                 if (textBlock && typeof textBlock.text === 'string' && textBlock.text.trim()) {
@@ -2258,14 +2411,14 @@
             return null;
         }
 
-        async function getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset) {
+        async function getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset, reasoning) {
             let response;
             if (apiType === 'openai') {
-                response = await callOpenAI(baseUrl, apiKey, model, headerPreset);
+                response = await callOpenAI(baseUrl, apiKey, model, headerPreset, reasoning);
             } else if (apiType === 'openai-responses') {
-                response = await callOpenAIResponses(baseUrl, apiKey, model, headerPreset);
+                response = await callOpenAIResponses(baseUrl, apiKey, model, headerPreset, reasoning);
             } else {
-                response = await callAnthropic(baseUrl, apiKey, model, headerPreset);
+                response = await callAnthropic(baseUrl, apiKey, model, headerPreset, reasoning);
             }
             return extractNumber(response);
         }
@@ -2309,6 +2462,8 @@
             const baselineName = document.getElementById('calib-baseline-name').value.trim();
             const concurrency  = Math.max(1, Math.min(50, parseInt(document.getElementById('calib-concurrency').value) || 1));
             const headerPreset = document.getElementById('calib-header-preset').value;
+            const reasoning = getRunReasoning('calib', 'calib-status');
+            if (!reasoning) return;
 
             if (!baseUrl || !apiKey || !model || !baselineName) {
                 showStatus('calib-status', '请填写所有必填字段', 'error');
@@ -2342,7 +2497,7 @@
                 async (i) => {
                     if (!calibRunning) return false;
                     try {
-                        const num = await getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset);
+                        const num = await getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset, reasoning);
                         if (num !== null) {
                             results.push(num);
                             successCount++;
@@ -2395,6 +2550,7 @@
                 name: sanitizeText(baselineName),
                 model: sanitizeText(model),
                 apiType: sanitizeText(apiType, 40) || 'openai',
+                reasoning,
                 timestamp: new Date().toISOString(),
                 iterations: results.length, distribution, stats, rawData: results
             };
@@ -2426,6 +2582,8 @@
             const iterations = parseInt(document.getElementById('test-iterations').value);
             const concurrency = Math.max(1, Math.min(50, parseInt(document.getElementById('test-concurrency').value) || 1));
             const headerPreset = document.getElementById('test-header-preset').value;
+            const reasoning = getRunReasoning('test', 'test-status');
+            if (!reasoning) return;
 
             if (!baseUrl || !apiKey || !model) {
                 showStatus('test-status', '请填写所有必填字段', 'error');
@@ -2468,7 +2626,7 @@
                 async (i) => {
                     if (!testRunning) return false;
                     try {
-                        const num = await getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset);
+                        const num = await getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset, reasoning);
                         if (num !== null) {
                             results.push(num);
                             successCount++;
@@ -2514,8 +2672,8 @@
             }
 
             const distribution = calculateDistribution(results);
-            const matches = matchBaselines(distribution, results);
-            displayTestResults(matches, distribution, model);
+            const matches = matchBaselines(distribution, results, apiType, reasoning);
+            displayTestResults(matches, distribution, model, apiType, reasoning);
 
             if (errorCount > 0) {
                 showStatus('test-status',
@@ -2598,13 +2756,14 @@
             return { cosineSimilarity: cosineSim, jsDivergence: jsDiv, modeScore, overallScore };
         }
 
-        function matchBaselines(testDistribution, testResults) {
+        function matchBaselines(testDistribution, testResults, apiType, reasoning) {
             const testStats = calculateStats(testResults);
             return baselines.map(baseline => {
                 const similarity = calculateSimilarity(testDistribution, baseline.distribution, testStats, baseline.stats);
                 const modeMatch = testStats.mode === baseline.stats.mode;
-                return { baseline, similarity, testStats, score: similarity.overallScore, modeMatch };
-            }).sort((a, b) => b.score - a.score);
+                return { baseline, similarity, testStats, score: similarity.overallScore, modeMatch,
+                    compatible: reasoningMatches(baseline, apiType, reasoning) };
+            }).sort((a, b) => Number(b.compatible) - Number(a.compatible) || b.score - a.score);
         }
 
         /* 与页面展示的百分比保持一致，避免结论与数字互相矛盾 */
@@ -2686,11 +2845,11 @@
             });
         }
 
-        function displayTestResults(matches, testDistribution, modelName) {
+        function displayTestResults(matches, testDistribution, modelName, apiType, reasoning) {
             const resultsContainer = document.getElementById('test-results');
             const matchesContainer = document.getElementById('test-matches');
             resultsContainer.style.display = 'block';
-            matchesContainer.innerHTML = '';
+            matchesContainer.innerHTML = `<p class="profile-hint">本次思考配置：${escapeHtml(describeReasoning(reasoning))}。优先显示思考配置相同的基准；配置不同或未知的匹配度仅供参考，请重新标定后判断。</p>`;
 
             if (matches.length === 0) {
                 matchesContainer.innerHTML = '<p style="text-align:center;color:#999;">没有找到匹配的基准</p>';
@@ -2700,10 +2859,11 @@
             matches.slice(0, 3).forEach((match, index) => {
                 const item = document.createElement('div');
                 item.className = 'match-item';
-                const verdict = getPurityVerdict(match.score);
+                const verdict = configuredVerdict(match.score, match.baseline, apiType, reasoning);
                 item.innerHTML = `
                     <div class="model-name">#${index + 1} ${escapeHtml(match.baseline.name)}</div>
                     <div class="similarity">
+                        <strong>基准思考配置:</strong> ${escapeHtml(describeReasoning(match.baseline.reasoning))}<br>
                         <strong>综合匹配度:</strong> ${(match.score * 100).toFixed(2)}%
                         <span class="verdict-badge ${verdict.className}">${verdict.text}</span><br>
                         <strong>众数匹配:</strong> ${(match.similarity.modeScore * 100).toFixed(0)}%（测试=${match.testStats.mode}, 基准=${match.baseline.stats.mode}）<br>
@@ -2770,6 +2930,7 @@
                         <div class="name">${escapeHtml(baseline.name)}</div>
                         <div class="stats">
                             模型: ${escapeHtml(baseline.model)} | 样本数: ${baseline.iterations} | 创建: ${escapeHtml(new Date(baseline.timestamp).toLocaleString('zh-CN'))}<br>
+                            思考配置: ${escapeHtml(describeReasoning(baseline.reasoning))}<br>
                             均值: ${baseline.stats.mean.toFixed(2)} | 标准差: ${baseline.stats.stdDev.toFixed(2)} | 唯一值: ${baseline.stats.unique}
                         </div>
                     </div>
@@ -2786,6 +2947,7 @@
         function viewBaseline(index) {
             const b = baselines[index];
             alert(`基准: ${b.name}\n模型: ${b.model}\nAPI: ${b.apiType}\n样本: ${b.iterations}\n` +
+                  `思考配置: ${describeReasoning(b.reasoning)}\n` +
                   `时间: ${new Date(b.timestamp).toLocaleString('zh-CN')}\n\n` +
                   `众数: ${b.stats.mode != null ? b.stats.mode : '(旧数据无此字段)'}` +
                   `${b.stats.modeCount ? ' (出现 ' + b.stats.modeCount + ' 次)' : ''}\n` +
@@ -2902,6 +3064,7 @@
             compareChannels.push(ch);
             const container = document.getElementById('channel-list');
             container.appendChild(buildChannelCard(ch, compareChannels.length));
+            updateReasoningFields(`ch-${id}`);
             fillProfileSelect(`ch-profile-select-${id}`);
         }
 
@@ -2935,7 +3098,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>API 类型</label>
-                        <select id="ch-api-type-${ch.id}">
+                        <select id="ch-api-type-${ch.id}" onchange="updateReasoningFields('ch-${ch.id}')">
                             <option value="openai">OpenAI 兼容格式</option>
                             <option value="openai-responses">OpenAI Responses API</option>
                             <option value="anthropic">Anthropic Claude API</option>
@@ -2978,6 +3141,7 @@
                     <label>模型名称</label>
                     <input type="text" id="ch-model-${ch.id}" placeholder="gpt-4">
                 </div>
+                ${reasoningControlsHtml(`ch-${ch.id}`)}
                 <div class="channel-progress" id="ch-progress-${ch.id}" style="display:none;">
                     <div class="channel-progress-bar">
                         <div class="channel-progress-fill" id="ch-progress-fill-${ch.id}">0%</div>
@@ -2997,6 +3161,7 @@
                 apiKey:       document.getElementById(`ch-api-key-${id}`).value.trim(),
                 model:        document.getElementById(`ch-model-${id}`).value.trim(),
                 headerPreset: document.getElementById(`ch-header-preset-${id}`).value,
+                reasoning: readReasoningConfig(`ch-${id}`),
             };
         }
 
@@ -3024,7 +3189,9 @@
             const concurrency = Math.max(1, Math.min(50, parseInt(document.getElementById('compare-concurrency').value) || 5));
             const baseline    = baselines[parseInt(baselineIdx)];
 
-            const channels = compareChannels.map(ch => getChannelConfig(ch.id));
+            let channels;
+            try { channels = compareChannels.map(ch => getChannelConfig(ch.id)); }
+            catch (error) { showStatus('compare-status', error.message, 'error'); return; }
             for (const ch of channels) {
                 if (!ch.baseUrl || !ch.apiKey || !ch.model || !ch.name) {
                     showStatus('compare-status', `渠道「${ch.name || ch.id}」信息不完整，请填写所有字段`, 'error');
@@ -3109,7 +3276,7 @@
                 async () => {
                     if (!compareRunning) return false;
                     try {
-                        const num = await getRandomNumber(channel.apiType, channel.baseUrl, channel.apiKey, channel.model, channel.headerPreset);
+                        const num = await getRandomNumber(channel.apiType, channel.baseUrl, channel.apiKey, channel.model, channel.headerPreset, channel.reasoning);
                         if (num !== null) {
                             results.push(num);
                             successCount++;
@@ -3147,7 +3314,7 @@
             const resultsCard = document.getElementById('compare-results');
             resultsCard.style.display = 'block';
 
-            let html = `<p style="color:var(--text-soft);margin-bottom:12px;">基准：<strong>${escapeHtml(baseline.name)}</strong>（${escapeHtml(baseline.model)}）</p>`;
+            let html = `<p style="color:var(--text-soft);margin-bottom:12px;">基准：<strong>${escapeHtml(baseline.name)}</strong>（${escapeHtml(baseline.model)}）<br>思考配置：${escapeHtml(describeReasoning(baseline.reasoning))}<br>配置不同或未知时，匹配度仅供参考，请用相同配置重新标定。</p>`;
             html += `<div class="table-scroll"><table class="ranking-table"><thead><tr>
                 <th>排名</th><th>渠道名称</th><th>综合匹配度</th><th>结论</th>
                 <th>众数匹配</th><th>余弦相似度</th><th>JS散度</th><th>数据量</th>
@@ -3158,10 +3325,10 @@
                 const scorePct  = (r.score * 100).toFixed(2);
                 const barWidth  = Math.max(5, r.score * 120);
                 const modeMatch = r.stats.mode === baseline.stats.mode ? '✅' : '❌';
-                const verdict   = getPurityVerdict(r.score);
+                const verdict   = configuredVerdict(r.score, baseline, r.channel.apiType, r.channel.reasoning);
                 html += `<tr>
                     <td><span class="rank-badge ${rankClass}">${i + 1}</span></td>
-                    <td><strong>${escapeHtml(r.channel.name)}</strong></td>
+                    <td><strong>${escapeHtml(r.channel.name)}</strong><br>${escapeHtml(describeReasoning(r.channel.reasoning))}</td>
                     <td>${scorePct}%<span class="score-bar" style="width:${barWidth}px;"></span></td>
                     <td><span class="verdict-badge ${verdict.className}">${verdict.text}</span></td>
                     <td>${modeMatch} ${r.stats.mode}（基准${baseline.stats.mode}）</td>
@@ -3244,6 +3411,7 @@
             const type = document.getElementById('quick-api-type').value;
             document.getElementById('quick-base-url').placeholder =
                 type === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1';
+            updateReasoningFields('quick');
         }
 
         function toggleQuickAdvanced() {
@@ -3353,6 +3521,8 @@
             const iterations   = Math.max(50, Math.min(500, parseInt(document.getElementById('quick-iterations').value) || 100));
             const concurrency  = Math.max(1, Math.min(50, parseInt(document.getElementById('quick-concurrency').value) || 5));
             const headerPreset = document.getElementById('quick-header-preset').value;
+            const reasoning = getRunReasoning('quick', 'quick-status');
+            if (!reasoning) return;
 
             if (!modelId) {
                 showStatus('quick-status', '请先在上方选择要鉴别的模型（若列表为空，请点「🔄 刷新」）', 'error');
@@ -3405,7 +3575,7 @@
                 async () => {
                     if (!quickRunning) return false;
                     try {
-                        const num = await getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset);
+                        const num = await getRandomNumber(apiType, baseUrl, apiKey, model, headerPreset, reasoning);
                         if (num !== null) {
                             results.push(num);
                             successCount++;
@@ -3458,7 +3628,7 @@
                 .sort((a, b) => b.similarity.overallScore - a.similarity.overallScore);
 
             displayQuickResult({
-                modelId, model, baseline, baselineSource, similarity, stats,
+                modelId, model, apiType, reasoning, baseline, baselineSource, similarity, stats,
                 distribution, iterations, successCount, errorCount, aborted,
                 crossMatches, crossFailed: others.failed
             });
@@ -3478,8 +3648,11 @@
             document.getElementById('quick-results').style.display = 'block';
 
             const score     = r.similarity.overallScore;
-            const bestOther = r.crossMatches.find(m => !m.isClaimed) || null;
-            const verdict   = getQuickVerdict(score, bestOther ? bestOther.similarity.overallScore : null);
+            const bestOther = r.crossMatches.find(m => !m.isClaimed && reasoningMatches(m.baseline, r.apiType, r.reasoning)) || null;
+            const compatible = reasoningMatches(r.baseline, r.apiType, r.reasoning);
+            const verdict = compatible
+                ? getQuickVerdict(score, bestOther ? bestOther.similarity.overallScore : null)
+                : configuredVerdict(score, r.baseline, r.apiType, r.reasoning);
 
             const descMap = {
                 'verdict-good': '本次测试的随机数分布与官方基准高度一致，未发现被替换或明显降智的迹象。',
@@ -3488,6 +3661,9 @@
             };
 
             let verdictDesc = descMap[verdict.className];
+            if (!compatible) {
+                verdictDesc = '基准与本次测试的思考配置不同，或旧版基准没有记录思考配置。分布差异可能来自思考强度或 token 上限，无法据此判断模型是否被替换或降智。请在「标定基准」中使用相同设置重新标定，再进行测试。';
+            }
             if (verdict.replaced) {
                 const gap = scoreGapPct(bestOther.similarity.overallScore, score);
                 verdictDesc = `本次分布与官方基准「${escapeHtml(bestOther.id)}」更像（${scoreToPct(bestOther.similarity.overallScore).toFixed(2)}%），`
@@ -3520,6 +3696,8 @@
                     <b>鉴别对象：</b>${escapeHtml(r.modelId)}
                         （渠道上的模型名：<code>${escapeHtml(r.model)}</code>）<br>
                     <b>官方基准：</b>${r.baseline.iterations || '?'} 个样本，标定于 ${baseTime}（来源：${escapeHtml(r.baselineSource)}）<br>
+                    <b>基准思考配置：</b>${escapeHtml(describeReasoning(r.baseline.reasoning))}<br>
+                    <b>本次思考配置：</b>${escapeHtml(describeReasoning(r.reasoning))}<br>
                     <b>本次测试：</b>${sampleCount} 个有效样本 / 共 ${r.iterations} 次请求${r.errorCount > 0 ? `（${r.errorCount} 次失败）` : ''}<br>
                     <b>本次统计：</b>众数 ${r.stats.mode}，均值 ${r.stats.mean.toFixed(2)}，标准差 ${r.stats.stdDev.toFixed(2)}，唯一值 ${r.stats.unique} 个
                 </div>
@@ -3576,7 +3754,7 @@
             }
 
             html += `<div class="table-scroll"><table class="ranking-table"><thead><tr>
-                <th>排名</th><th>官方基准</th><th>综合匹配度</th><th>众数</th><th>余弦相似度</th><th>JS散度</th>
+                <th>排名</th><th>官方基准 / 思考配置</th><th>综合匹配度</th><th>众数</th><th>余弦相似度</th><th>JS散度</th>
             </tr></thead><tbody>`;
 
             r.crossMatches.forEach((m, i) => {
@@ -3585,7 +3763,7 @@
                 const modeMatch = r.stats.mode === m.baseline.stats.mode ? '✅' : '❌';
                 html += `<tr>
                     <td><span class="rank-badge ${rankClass}">${i + 1}</span></td>
-                    <td><strong>${escapeHtml(m.id)}</strong>${m.isClaimed ? ' <span class="verdict-badge verdict-self">所选模型</span>' : ''}</td>
+                    <td><strong>${escapeHtml(m.id)}</strong>${m.isClaimed ? ' <span class="verdict-badge verdict-self">所选模型</span>' : ''}<br>${escapeHtml(describeReasoning(m.baseline.reasoning))}${reasoningMatches(m.baseline, r.apiType, r.reasoning) ? '' : '<br>配置不同或未知，仅供参考'}</td>
                     <td>${scoreToPct(s).toFixed(2)}%<span class="score-bar" style="width:${Math.max(5, s * 120)}px;"></span></td>
                     <td>${modeMatch} ${m.baseline.stats.mode}</td>
                     <td>${(m.similarity.cosineSimilarity * 100).toFixed(2)}%</td>
@@ -3596,13 +3774,14 @@
 
             // 最像的其他基准与所选模型差距不足判定门槛时，提示两者难以区分
             const claimed   = r.crossMatches.find(m => m.isClaimed);
-            const bestOther = r.crossMatches.find(m => !m.isClaimed);
-            const gap = scoreGapPct(bestOther.similarity.overallScore, claimed.similarity.overallScore);
-            if (gap > 0 && gap < REPLACE_MARGIN_PCT) {
+            const bestOther = r.crossMatches.find(m => !m.isClaimed && reasoningMatches(m.baseline, r.apiType, r.reasoning));
+            const gap = claimed && bestOther && reasoningMatches(claimed.baseline, r.apiType, r.reasoning)
+                ? scoreGapPct(bestOther.similarity.overallScore, claimed.similarity.overallScore) : null;
+            if (gap !== null && gap > 0 && gap < REPLACE_MARGIN_PCT) {
                 html += `<div class="quick-meta" style="border-left-color:#d99a06;margin-top:14px;">
                     ⚠️ 「${escapeHtml(bestOther.id)}」的匹配度比所选模型高 ${gap.toFixed(2)} 个百分点，未达到判定替换所需的 ${REPLACE_MARGIN_PCT} 个百分点，暂不判为替换。仅凭本次结果难以区分这两个模型，建议加大测试次数复测。
                 </div>`;
-            } else if (gap <= 0 && gap > -REPLACE_MARGIN_PCT) {
+            } else if (gap !== null && gap <= 0 && gap > -REPLACE_MARGIN_PCT) {
                 html += `<div class="quick-meta" style="border-left-color:#d99a06;margin-top:14px;">
                     ⚠️ 「${escapeHtml(bestOther.id)}」的匹配度与所选模型相差不到 ${REPLACE_MARGIN_PCT} 个百分点，仅凭本次结果难以区分这两个模型。建议加大测试次数复测。
                 </div>`;
@@ -3655,6 +3834,10 @@
          *  初始化
          * ======================================== */
         window.addEventListener('DOMContentLoaded', () => {
+            ['quick', 'calib', 'test'].forEach(prefix => {
+                document.getElementById(`${prefix}-reasoning-controls`).innerHTML = reasoningControlsHtml(prefix);
+                updateReasoningFields(prefix);
+            });
             console.log('hlwy-ai-checker AI 模型鉴别器已加载');
             console.log(`当前已保存 ${baselines.length} 个基准模型`);
 
@@ -3755,6 +3938,11 @@
         }
 
         async function saveApiProfile(scope, chId) {
+            const prefix = scope === 'ch' ? `ch-${chId}` : scope;
+            let reasoning;
+            try { reasoning = readReasoningConfig(prefix); }
+            catch (error) { alert(error.message); return; }
+            const reasoningMaxTokensAuto = document.getElementById(`${prefix}-max-output-tokens`).value.trim() === '';
             const baseUrl = profileEl(scope, 'baseUrl', chId).value.trim();
             const apiKey  = profileEl(scope, 'apiKey',  chId).value.trim();
             if (!baseUrl && !apiKey) {
@@ -3782,6 +3970,8 @@
                 rememberKey:  remember && !!storedKey,
                 model:        profileEl(scope, 'model', chId).value.trim(),
                 headerPreset: profileEl(scope, 'headerPreset', chId).value,
+                reasoning,
+                reasoningMaxTokensAuto,
             };
 
             const idx = profiles.findIndex(p => p.name === name);
@@ -3826,6 +4016,17 @@
             if (scope === 'quick') updateQuickApiFields();
             else if (scope === 'calib') updateCalibApiFields();
             else if (scope === 'test')  updateTestApiFields();
+            else updateReasoningFields(`ch-${chId}`);
+
+            const prefix = scope === 'ch' ? `ch-${chId}` : scope;
+            const reasoning = normalizeReasoningConfig(p.reasoning || { mode: 'default' }, reasoningApiType(prefix))
+                || normalizeReasoningConfig({ mode: 'default' }, reasoningApiType(prefix));
+            document.getElementById(`${prefix}-reasoning-mode`).value = reasoning.mode;
+            document.getElementById(`${prefix}-reasoning-effort`).value = reasoning.effort;
+            document.getElementById(`${prefix}-thinking-budget`).value = reasoning.budgetTokens || 4096;
+            document.getElementById(`${prefix}-max-output-tokens`).value =
+                p.reasoningMaxTokensAuto === true || !p.reasoning ? '' : reasoning.maxTokens;
+            updateReasoningFields(prefix);
         }
 
         function deleteApiProfile(scope, chId) {
